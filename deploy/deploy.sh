@@ -23,40 +23,36 @@
 # серверный счётчик прогонов. Поэтому вместо runtime=static (только nginx)
 # здесь запрашивается runtime=node20.
 #
-# Платформа деплоит такие приложения как GALAXY-контейнер (общий хост), а не
-# отдельную VM — и в этом режиме runtime нужно передавать в КАЖДОМ запросе
-# деплоя (и при первом создании, и при каждом обновлении), иначе платформа
-# отвечает GALAXY_DEPLOY_RUNTIME_REQUIRED. Раньше runtime передавался только
-# при создании сервера (по образцу standalone-VM скрипта из
-# vibecoders-front-ui-gallery/deploy/deploy.sh) — из-за этого повторный
-# деплой на уже существующий сервер падал с той же ошибкой.
+# Приложение деплоится как GALAXY-контейнер (общий хост), а не отдельная VM —
+# см. deploy-galaxy.sh в vibecoders-front-ui-gallery/deploy. Три вещи,
+# которые отличают этот путь от standalone-VM (и на которых этот скрипт
+# спотыкался по очереди, пока не выяснилось опытным путём):
+#   1. runtime нужно передавать в КАЖДОМ запросе деплоя (и при создании, и
+#      при каждом обновлении) — иначе GALAXY_DEPLOY_RUNTIME_REQUIRED.
+#   2. готовность проверяется через status=running, а не
+#      blackholeStatus=CONNECTED (тот статус Galaxy никогда не достигает).
+#   3. САМОЕ ГЛАВНОЕ: и создание, и (ре)деплой — это ОДИН JSON-запрос с
+#      исходниками в поле source.content как base64, а НЕ multipart-загрузка
+#      файла (`-F "archive=@..."`). С multipart платформа отвечала 200 OK,
+#      создавала app slot, но реального деплоя не запускала («No source was
+#      deployed — the app slot was created but a deploy never started»),
+#      потому что просто не понимала поле archive.
 #
-# Galaxy отличается от standalone-VM ещё в двух местах (см. deploy-galaxy.sh
-# из того же референсного репозитория):
-#   • сервер никогда не доходит до blackholeStatus=CONNECTED — готовность
-#     проверяется через status=running;
-#   • сам запрос POST .../deploy не обязан синхронно вернуть success:true
-#     с готовым appUrl — сборка контейнера может продолжаться уже после
-#     ответа (или ответ вовсе не прийти вовремя). Поэтому здесь у запроса
-#     заливки есть тайм-аут (не виснет молча вечно), а готовность в любом
-#     случае проверяется отдельным опросом status=running — как и создание.
 # ⚠️ Базовый URL AI Router в server/lib/vibeAiClient.js — по-прежнему
 # непроверенное предположение (см. комментарий там же и deploy/README.md).
 # Если после деплоя `/api/analyze` отдаёт 502 — проверь путь AI Router и
 # формат авторизации в личном кабинете VibeCode.
 
+set -u
 API="https://vibecode.bitrix24.tech/v1"
-PLAN="bc-small"                    # тариф сервера (дешевле — bc-agent)
-REGION="ru-central1-a"             # дата-центр (Москва)
-NAME="article-quality-checker"     # имя сервера на платформе
+NAME="article-quality-checker"     # имя приложения на платформе
 RUNTIME_IMAGE="node20"
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
-IDFILE="$HERE/.vibe-server"      # сюда запомним id созданного сервера (в гит не нужен)
+IDFILE="$HERE/.vibe-server"      # сюда запомним id приложения (в гит не нужен)
 ENVFILE="$HERE/.env.deploy"      # сюда можно один раз положить ключи (в гит не нужен)
 
-# 2. Файл deploy/.env.deploy, если он есть и переменная ещё не задана снаружи.
 if [ -f "$ENVFILE" ]; then
   set -a
   # shellcheck disable=SC1090
@@ -64,11 +60,9 @@ if [ -f "$ENVFILE" ]; then
   set +a
 fi
 
-# 3. Если ключа всё ещё нет — спрашиваем интерактивно, без эха на экран.
 if [ -z "${VIBE_KEY:-}" ]; then
   read -rsp "VIBE_KEY (vibe_api_...): " VIBE_KEY; echo
 fi
-
 if [ -z "${VIBE_KEY:-}" ]; then
   echo "❌ VIBE_KEY не задан."
   exit 1
@@ -77,14 +71,18 @@ ACCESS_PIN="${ACCESS_PIN:-2847}"
 VIBE_AI_MODEL="${VIBE_AI_MODEL:-bitrix/bitrixgpt-5.5}"
 VIBE_AI_BASE_URL="${VIBE_AI_BASE_URL:-https://vibecode.bitrix24.tech/v1/ai}"
 
-api() { curl -s -H "X-Api-Key: $VIBE_KEY" "$@"; }
+api()   { curl -s -H "X-Api-Key: $VIBE_KEY" "$@"; }
 # вытащить строковое поле из JSON-ответа (чтобы не зависеть от jq)
 field() { grep -oE "\"$1\":\"[^\"]*\"" | head -1 | sed -E "s/.*:\"([^\"]*)\"/\1/"; }
+# base64 без переносов строк — на GNU (Linux/Git Bash) есть -w0, на BSD/macOS нет
+b64() {
+  if base64 --help 2>&1 | grep -q -- '-w'; then base64 -w0 "$1"; else base64 "$1" | tr -d '\n'; fi
+}
 
 echo "→ 1/5  Собираю фронтенд (npm run build)…"
 ( cd "$ROOT" && npm run build >/dev/null ) || { echo "❌ Сборка упала"; exit 1; }
 
-echo "→ 2/5  Ставлю прод-зависимости и пакую сервер + dist…"
+echo "→ 2/5  Ставлю прод-зависимости и кодирую архив в base64…"
 WORK="$(mktemp -d)"
 [ -n "$WORK" ] && [ -d "$WORK" ] || { echo "❌ Не удалось создать временную папку"; exit 1; }
 trap 'rm -rf "$WORK"' EXIT
@@ -104,37 +102,48 @@ EOF
 ( cd "$WORK/stage" && npm ci --omit=dev --ignore-scripts >/dev/null ) || { echo "❌ npm ci упал"; exit 1; }
 tar -czf "$WORK/app.tgz" -C "$WORK/stage" .
 
+# base64 крупный — JSON-тело кладём в файл, не в командную строку (argv лимит)
+{
+  printf '{"name":"%s","runtime":"%s","port":3000,"start":"node server/index.js","source":{"content":"' \
+    "$NAME" "$RUNTIME_IMAGE"
+  b64 "$WORK/app.tgz"
+  printf '"}}'
+} > "$WORK/body.json"
+
 if [ -f "$IDFILE" ]; then
   SID="$(cat "$IDFILE")"
-  echo "→ 3/5  Использую существующий сервер: $SID"
+  echo "→ 3/5  Передеплой существующего приложения: $SID"
+  RESP="$(api -X POST "$API/infra/servers/$SID/deploy?stream=false" \
+      -H "Content-Type: application/json" --data-binary @"$WORK/body.json")"
+  if printf '%s' "$RESP" | grep -q '"error"'; then
+    echo "❌ Деплой отклонён:"; echo "$RESP"; exit 1
+  fi
 else
-  echo "→ 3/5  Создаю сервер ($PLAN, $REGION, runtime=$RUNTIME_IMAGE)… (это платный шаг)"
-  IMAGE="$(api "$API/infra/providers/bitrix-cloud/images" | field id)"
-  RESP="$(api -X POST "$API/infra/servers" -H "Content-Type: application/json" \
-      -d "{\"provider\":\"bitrix-cloud\",\"name\":\"$NAME\",\"plan\":\"$PLAN\",\"region\":\"$REGION\",\"image\":\"$IMAGE\",\"runtime\":\"$RUNTIME_IMAGE\"}")"
-  SID="$(printf '%s' "$RESP" | field id)"
-  if [ -z "$SID" ]; then echo "❌ Сервер не создался: $RESP"; exit 1; fi
+  echo "→ 3/5  Создаю приложение (one-shot, с исходниками)… (это платный шаг)"
+  SID=""
+  for attempt in $(seq 1 5); do
+    RESP="$(api -X POST "$API/infra/servers" \
+        -H "Content-Type: application/json" --data-binary @"$WORK/body.json")"
+    SID="$(printf '%s' "$RESP" | field id)"
+    [ -n "$SID" ] && break
+    # Ретраим ТОЛЬКО «мигание» режима портала; любую другую ошибку — наружу
+    if printf '%s' "$RESP" | grep -q "SOURCE_AT_CREATE_GALAXY_ONLY"; then
+      echo "   попытка $attempt/5: портал ушёл в standalone (SOURCE_AT_CREATE_GALAXY_ONLY), повтор через 8с…"
+      sleep 8
+      continue
+    fi
+    echo "❌ Не создалось: $RESP"; exit 1
+  done
+  if [ -z "$SID" ]; then
+    echo "❌ Не удалось создать приложение за 5 попыток (портал упорно резолвится в standalone)."
+    exit 1
+  fi
   printf '%s' "$SID" > "$IDFILE"
 fi
 
-echo "→ 4/5  Заливаю приложение на сервер (тайм-аут 3 мин на сам запрос)…"
-# На Galaxy этот запрос не обязан синхронно вернуть готовый результат — не
-# считаем тайм-аут/обрыв здесь фатальным, реальную готовность всё равно
-# проверяем следующим шагом через status=running.
-DRESP="$(api --max-time 180 -X POST "$API/infra/servers/$SID/deploy?stream=false" \
-    -F "archive=@$WORK/app.tgz" -F "runtime=$RUNTIME_IMAGE" \
-    -F "start=node server/index.js" -F "port=3000" -F "cleanDeploy=true")"
-CURL_EXIT=$?
-if [ "$CURL_EXIT" -ne 0 ]; then
-  echo "⚠️  Запрос не дождался ответа за 3 мин (curl exit $CURL_EXIT) — возможно, сборка"
-  echo "    продолжается на сервере в фоне. Проверяю статус напрямую…"
-elif printf '%s' "$DRESP" | grep -q '"error"'; then
-  echo "❌ Деплой отклонён:"; echo "$DRESP"; exit 1
-fi
-
-echo "   Жду сборку контейнера (status=running)…"
+echo "→ 4/5  Жду сборку контейнера (status=running)…"
 URL=""
-for _ in $(seq 1 60); do
+for _ in $(seq 1 40); do
   INFO="$(api "$API/infra/servers/$SID")"
   ST="$(printf '%s' "$INFO" | field status)"
   case "$ST" in
@@ -149,17 +158,16 @@ for _ in $(seq 1 60); do
   printf "."; sleep 6
 done
 echo
+
 if [ -z "$URL" ]; then
-  echo "⚠️  Не дождался status=running за ~6 мин. Проверь вручную:"
+  echo "⚠️  Не дождался running за ~4 мин. Проверь вручную:"
   echo "   curl -H \"X-Api-Key: \$VIBE_KEY\" $API/infra/servers/$SID"
   exit 1
 fi
 
-echo "→ 5/5  Делаю сайт публичным и не засыпающим…"
-api -X PATCH "$API/infra/servers/$SID/access-policy" -H "Content-Type: application/json" -d '{"accessPolicy":"PUBLIC"}' >/dev/null
-# У Galaxy-приложений нет режима сна — если платформа ответит ошибкой на этот
-# запрос, это не страшно, поэтому результат намеренно не проверяем.
-api -X PATCH "$API/infra/servers/$SID/sleep" -H "Content-Type: application/json" -d '{"sleepAfterMinutes":null}' >/dev/null 2>&1 || true
+echo "→ 5/5  Делаю приложение публичным…"
+api -X PATCH "$API/infra/servers/$SID/access-policy" \
+    -H "Content-Type: application/json" -d '{"accessPolicy":"PUBLIC"}' >/dev/null
 
 echo
 echo "✅ Готово! Твой сайт онлайн:"
