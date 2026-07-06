@@ -1,7 +1,7 @@
 import logo from "../assets/bitrix24-logo.png";
 import { LANGS, BLUE, DARK } from "../constants.js";
 
-export default function Header({ activeLang, onLangChange }) {
+export default function Header({ activeLang, onLangChange, t }) {
   return (
     <div
       style={{
@@ -20,7 +20,7 @@ export default function Header({ activeLang, onLangChange }) {
           <div style={{ fontWeight: 600, fontSize: 14, color: DARK }}>
             Article Quality Checker
           </div>
-          <div style={{ fontSize: 11, color: "#888" }}>Editorial review tool</div>
+          <div style={{ fontSize: 11, color: "#888" }}>{t.tagline}</div>
         </div>
       </div>
       <div style={{ display: "flex", gap: 5, flexWrap: "wrap", justifyContent: "flex-end" }}>

@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { BLUE, DARK } from "../constants.js";
 
-function FileSlot({ title, subtitle, file, wordCount, accentColor, onSelect }) {
+function FileSlot({ title, subtitle, file, wordCount, accentColor, onSelect, t }) {
   const inputRef = useRef(null);
   const filled = Boolean(file);
 
@@ -53,16 +53,16 @@ function FileSlot({ title, subtitle, file, wordCount, accentColor, onSelect }) {
         }}
       >
         <span style={{ fontSize: 15 }}>{filled ? "✓" : "📄"}</span>
-        {filled ? file.name : `Загрузить .docx`}
+        {filled ? file.name : t.upload.cta}
       </div>
       <div style={{ fontSize: 11, color: filled ? DARK : "#aaa", marginTop: 3 }}>
-        {filled ? `Загружено · ${wordCount ?? "…"} слов` : subtitle}
+        {filled ? t.upload.uploaded(wordCount ?? "…") : subtitle}
       </div>
     </div>
   );
 }
 
-export default function UploadZone({ draft, final, onDraftSelect, onFinalSelect }) {
+export default function UploadZone({ draft, final, onDraftSelect, onFinalSelect, t }) {
   return (
     <div
       style={{
@@ -74,20 +74,22 @@ export default function UploadZone({ draft, final, onDraftSelect, onFinalSelect 
       }}
     >
       <FileSlot
-        title="AI draft"
-        subtitle="Файл, который редактор получил от тебя"
+        title={t.upload.aiDraftTitle}
+        subtitle={t.upload.aiDraftSubtitle}
         accentColor={BLUE}
         file={draft.file}
         wordCount={draft.wordCount}
         onSelect={onDraftSelect}
+        t={t}
       />
       <FileSlot
-        title="Готовый текст"
-        subtitle="Отредактированная версия редактора"
+        title={t.upload.finalTitle}
+        subtitle={t.upload.finalSubtitle}
         accentColor={DARK}
         file={final.file}
         wordCount={final.wordCount}
         onSelect={onFinalSelect}
+        t={t}
       />
     </div>
   );

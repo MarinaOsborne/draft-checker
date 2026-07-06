@@ -3,7 +3,7 @@ import logo from "../assets/bitrix24-logo.png";
 import { verifyPin, setPin } from "../api.js";
 import { DARK, BLUE, ERROR } from "../constants.js";
 
-export default function PinScreen({ onSuccess }) {
+export default function PinScreen({ onSuccess, t }) {
   const [value, setValue] = useState("");
   const [error, setError] = useState(false);
   const [checking, setChecking] = useState(false);
@@ -54,7 +54,7 @@ export default function PinScreen({ onSuccess }) {
           autoFocus
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          placeholder="Пин-код"
+          placeholder={t.pin.placeholder}
           style={{
             fontSize: 15,
             padding: "10px 12px",
@@ -67,7 +67,7 @@ export default function PinScreen({ onSuccess }) {
         />
         {error && (
           <div style={{ color: ERROR, fontSize: 12, textAlign: "center" }}>
-            Неверный пин-код
+            {t.pin.error}
           </div>
         )}
         <button
@@ -85,11 +85,11 @@ export default function PinScreen({ onSuccess }) {
             opacity: checking || !value ? 0.6 : 1,
           }}
         >
-          {checking ? "Проверка…" : "Войти"}
+          {checking ? t.pin.checking : t.pin.submit}
         </button>
       </form>
       <div style={{ marginTop: 20, fontSize: 11, color: "#aaa" }}>
-        <span style={{ color: BLUE }}>Article Quality Checker</span> · Editorial review tool
+        <span style={{ color: BLUE }}>Article Quality Checker</span> · {t.tagline}
       </div>
     </div>
   );

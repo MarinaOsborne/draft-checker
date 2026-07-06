@@ -1,4 +1,4 @@
-import { CRITERIA, BLUE, DARK, SUCCESS, WARNING, ERROR } from "../constants.js";
+import { CRITERIA_KEYS, BLUE, DARK, SUCCESS, WARNING, ERROR } from "../constants.js";
 
 const pillStyle = {
   ok: { background: "#e8f5e9", color: "#2e7d32" },
@@ -6,13 +6,13 @@ const pillStyle = {
   crit: { background: "#fce8e8", color: "#a32d2d" },
 };
 
-function bucket(val) {
-  if (val >= 7) return { color: SUCCESS, type: "ok", tag: val >= 8.25 ? "отлично" : "хорошо" };
-  if (val >= 5) return { color: WARNING, type: "warn", tag: "можно лучше" };
-  return { color: ERROR, type: "crit", tag: "слабо" };
+function bucket(val, t) {
+  if (val >= 7) return { color: SUCCESS, type: "ok", tag: val >= 8.25 ? t.tag.excellent : t.tag.good };
+  if (val >= 5) return { color: WARNING, type: "warn", tag: t.tag.couldBeBetter };
+  return { color: ERROR, type: "crit", tag: t.tag.weak };
 }
 
-export default function ScoreCard({ result }) {
+export default function ScoreCard({ result, t }) {
   const isReady = result.verdict === "ready";
 
   return (
@@ -28,7 +28,7 @@ export default function ScoreCard({ result }) {
           marginBottom: 10,
         }}
       >
-        Итоговая оценка
+        {t.score.heading}
       </div>
 
       <div
@@ -88,16 +88,16 @@ export default function ScoreCard({ result }) {
               whiteSpace: "nowrap",
             }}
           >
-            {isReady ? "✅ Готово к публикации" : "⚠️ Не готово к публикации"}
+            {isReady ? t.score.ready : t.score.notReady}
           </div>
         </div>
 
-        {CRITERIA.map((c, i) => {
-          const val = result.scores?.[c.key] ?? 0;
-          const { color, type, tag } = bucket(val);
+        {CRITERIA_KEYS.map((key, i) => {
+          const val = result.scores?.[key] ?? 0;
+          const { color, type, tag } = bucket(val, t);
           return (
             <div
-              key={c.key}
+              key={key}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -106,7 +106,7 @@ export default function ScoreCard({ result }) {
                 borderTop: i === 0 ? "none" : "1px solid #f0f0f0",
               }}
             >
-              <span style={{ fontSize: 12, color: "#666", minWidth: 190 }}>{c.name}</span>
+              <span style={{ fontSize: 12, color: "#666", minWidth: 190 }}>{t.criteria[key]}</span>
               <div
                 style={{
                   flex: 1,

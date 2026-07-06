@@ -1,6 +1,6 @@
 import { MAX_RUNS, DARK } from "../constants.js";
 
-export default function RunCounter({ filename, runs, onReset, resetting }) {
+export default function RunCounter({ filename, runs, onReset, resetting, t }) {
   const remaining = MAX_RUNS - runs;
   const exhausted = remaining <= 0;
   const bg = exhausted ? "#fce8e8" : remaining === 1 ? "#fff8e6" : "#e8f4fc";
@@ -35,9 +35,7 @@ export default function RunCounter({ filename, runs, onReset, resetting }) {
         ))}
       </div>
       <span style={{ color: col, fontWeight: 500 }}>
-        {exhausted
-          ? "Лимит исчерпан"
-          : `Осталось ${remaining} ${remaining === 1 ? "прогон" : "прогона"} из ${MAX_RUNS}`}
+        {exhausted ? t.runCounter.exhausted : t.runCounter.remaining(remaining, MAX_RUNS)}
       </span>
       {filename && <span style={{ color: "#888", fontSize: 11 }}>· {filename}</span>}
       {exhausted && (
@@ -55,7 +53,7 @@ export default function RunCounter({ filename, runs, onReset, resetting }) {
             cursor: resetting ? "not-allowed" : "pointer",
           }}
         >
-          {resetting ? "Сброс…" : "Сбросить (admin)"}
+          {resetting ? t.runCounter.resetting : t.runCounter.reset}
         </button>
       )}
     </div>

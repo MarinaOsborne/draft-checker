@@ -9,12 +9,14 @@ import TopEdits from "./components/TopEdits.jsx";
 import DiffView from "./components/DiffView.jsx";
 import { parseDocx, getRunCount, resetRunCount, analyzeArticle, clearPin } from "./api.js";
 import { LANGS, MAX_RUNS, DARK } from "./constants.js";
+import { getTranslations } from "./i18n.js";
 
 const EMPTY_FILE = { file: null, text: "", wordCount: 0 };
 
 export default function App() {
   const [authenticated, setAuthenticated] = useState(() => Boolean(sessionStorage.getItem("aqc_pin")));
   const [activeLang, setActiveLang] = useState(LANGS[0]);
+  const t = getTranslations(activeLang);
   const [draft, setDraft] = useState(EMPTY_FILE);
   const [final, setFinal] = useState(EMPTY_FILE);
   const [runsCount, setRunsCount] = useState(0);
@@ -111,7 +113,7 @@ export default function App() {
   }
 
   if (!authenticated) {
-    return <PinScreen onSuccess={() => setAuthenticated(true)} />;
+    return <PinScreen onSuccess={() => setAuthenticated(true)} t={t} />;
   }
 
   return (
@@ -125,18 +127,19 @@ export default function App() {
         padding: "0 0 2rem",
       }}
     >
-      <Header activeLang={activeLang} onLangChange={handleLangChange} />
+      <Header activeLang={activeLang} onLangChange={handleLangChange} t={t} />
 
       <UploadZone
         draft={draft}
         final={final}
         onDraftSelect={(f) => handleFileSelect("draft", f)}
         onFinalSelect={(f) => handleFileSelect("final", f)}
+        t={t}
       />
 
       {uploading && (
         <div style={{ padding: "0 20px", marginBottom: 12, fontSize: 12, color: "#aaa" }}>
-          Разбираю {uploading === "draft" ? "AI-драфт" : "готовый текст"}…
+          {t.parsing.label(uploading === "draft" ? t.parsing.draft : t.parsing.final)}
         </div>
       )}
 
@@ -162,6 +165,7 @@ export default function App() {
           runs={runsCount}
           onReset={handleReset}
           resetting={resetting}
+          t={t}
         />
       </div>
 
@@ -185,24 +189,24 @@ export default function App() {
             transition: "all 0.15s",
           }}
         >
-          ✦ {analyzing ? "Анализирую…" : exhausted ? "Лимит исчерпан" : "Проверить статью"}
+          ✦ {analyzing ? t.runButton.analyzing : exhausted ? t.runButton.exhausted : t.runButton.cta}
         </button>
-        {!exhausted && bothReady && !analyzing && <span style={{ fontSize: 12, color: "#aaa" }}>~30 секунд</span>}
-        {exhausted && <span style={{ fontSize: 12, color: "#a32d2d" }}>Обратитесь к Marina для сброса</span>}
+        {!exhausted && bothReady && !analyzing && <span style={{ fontSize: 12, color: "#aaa" }}>{t.runButton.eta}</span>}
+        {exhausted && <span style={{ fontSize: 12, color: "#a32d2d" }}>{t.runButton.contactAdmin}</span>}
       </div>
 
       {showResult && result && (
         <>
-          <ScoreCard result={result} />
-          <NotesList notes={result.notes} />
-          <TopEdits edits={result.top_edits} />
-          <DiffView draftText={draft.text} finalText={final.text} />
+          <ScoreCard result={result} t={t} />
+          <NotesList notes={result.notes} t={t} />
+          <TopEdits edits={result.top_edits} t={t} />
+          <DiffView draftText={draft.text} finalText={final.text} t={t} />
         </>
       )}
 
       {!showResult && !exhausted && (
         <div style={{ padding: "40px 20px", textAlign: "center", color: "#aaa", fontSize: 13 }}>
-          {bothReady ? "Нажми «Проверить статью»" : "Загрузи оба файла и нажми «Проверить статью»"}
+          {bothReady ? t.placeholder.ready : t.placeholder.notReady}
         </div>
       )}
 
@@ -218,11 +222,11 @@ export default function App() {
           }}
         >
           <div style={{ fontSize: 22, marginBottom: 8 }}>🚫</div>
-          <div style={{ fontWeight: 600, color: "#a32d2d", marginBottom: 4 }}>Лимит прогонов исчерпан</div>
+          <div style={{ fontWeight: 600, color: "#a32d2d", marginBottom: 4 }}>{t.exhaustedPanel.title}</div>
           <div style={{ fontSize: 12, color: "#c0392b" }}>
-            На файл <strong>{final.file?.name}</strong> использовано {MAX_RUNS}/{MAX_RUNS} прогонов.
+            {t.exhaustedPanel.body(final.file?.name, MAX_RUNS)}
             <br />
-            Обратитесь к Marina для сброса лимита.
+            {t.exhaustedPanel.contact}
           </div>
         </div>
       )}

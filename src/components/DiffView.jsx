@@ -1,14 +1,13 @@
 import { useMemo } from "react";
 import { diffWords } from "diff";
 
-const LEGEND = [
-  ["#eaf3de", "#97c459", "добавлено"],
-  ["#fce8e8", "#f09595", "удалено"],
-  ["#f0f0f0", "#ccc", "без изменений"],
-];
-
-export default function DiffView({ draftText, finalText }) {
+export default function DiffView({ draftText, finalText, t }) {
   const parts = useMemo(() => diffWords(draftText || "", finalText || ""), [draftText, finalText]);
+  const legend = [
+    ["#eaf3de", "#97c459", t.diff.added],
+    ["#fce8e8", "#f09595", t.diff.removed],
+    ["#f0f0f0", "#ccc", t.diff.unchanged],
+  ];
 
   return (
     <>
@@ -23,7 +22,7 @@ export default function DiffView({ draftText, finalText }) {
           marginBottom: 10,
         }}
       >
-        Diff — что изменено
+        {t.diff.heading}
       </div>
       <div
         style={{
@@ -44,7 +43,7 @@ export default function DiffView({ draftText, finalText }) {
             borderBottom: "1px solid #ddeef8",
           }}
         >
-          {LEGEND.map(([bg, br, label]) => (
+          {legend.map(([bg, br, label]) => (
             <div key={label} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "#888" }}>
               <div style={{ width: 8, height: 8, borderRadius: 2, background: bg, border: `1px solid ${br}`, flexShrink: 0 }} />
               {label}

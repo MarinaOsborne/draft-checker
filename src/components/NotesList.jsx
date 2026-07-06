@@ -6,7 +6,7 @@ const tagStyle = {
   fix: { background: "#fff8e6", color: "#a05c00" },
 };
 
-export default function NotesList({ notes }) {
+export default function NotesList({ notes, t }) {
   if (!notes?.length) return null;
   return (
     <>
@@ -21,7 +21,7 @@ export default function NotesList({ notes }) {
           marginBottom: 10,
         }}
       >
-        Конкретные замечания
+        {t.notes.heading}
       </div>
       <div style={{ padding: "0 20px", marginBottom: 20, display: "flex", flexDirection: "column", gap: 8 }}>
         {notes.map((n, i) => (
@@ -47,7 +47,7 @@ export default function NotesList({ notes }) {
                 ...tagStyle[n.type],
               }}
             >
-              {n.label}
+              {t.notes.label[n.type] || n.label}
             </span>
             <div
               style={{

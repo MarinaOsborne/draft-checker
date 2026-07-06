@@ -1,6 +1,6 @@
 import { DARK } from "../constants.js";
 
-export default function TopEdits({ edits }) {
+export default function TopEdits({ edits, t }) {
   if (!edits?.length) return null;
   return (
     <>
@@ -15,7 +15,7 @@ export default function TopEdits({ edits }) {
           marginBottom: 10,
         }}
       >
-        Топ правок редактора
+        {t.topEdits.heading}
       </div>
       <div style={{ padding: "0 20px", marginBottom: 20, display: "flex", flexDirection: "column", gap: 8 }}>
         {edits.map((e, i) => (
@@ -70,7 +70,7 @@ export default function TopEdits({ edits }) {
                     marginBottom: 5,
                   }}
                 >
-                  Было (AI)
+                  {t.topEdits.before}
                 </div>
                 <div style={{ fontSize: 11, color: "#999", lineHeight: 1.5 }}>{e.before}</div>
               </div>
@@ -85,7 +85,7 @@ export default function TopEdits({ edits }) {
                     marginBottom: 5,
                   }}
                 >
-                  Стало
+                  {t.topEdits.after}
                 </div>
                 <div style={{ fontSize: 11, color: "#1a1a1a", lineHeight: 1.5 }}>{e.after}</div>
               </div>
