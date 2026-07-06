@@ -31,6 +31,15 @@
 # vibecoders-front-ui-gallery/deploy/deploy.sh) — из-за этого повторный
 # деплой на уже существующий сервер падал с той же ошибкой.
 #
+# Galaxy отличается от standalone-VM ещё в двух местах (см. deploy-galaxy.sh
+# из того же референсного репозитория):
+#   • сервер никогда не доходит до blackholeStatus=CONNECTED — готовность
+#     проверяется через status=running;
+#   • сам запрос POST .../deploy не обязан синхронно вернуть success:true
+#     с готовым appUrl — сборка контейнера может продолжаться уже после
+#     ответа (или ответ вовсе не прийти вовремя). Поэтому здесь у запроса
+#     заливки есть тайм-аут (не виснет молча вечно), а готовность в любом
+#     случае проверяется отдельным опросом status=running — как и создание.
 # ⚠️ Базовый URL AI Router в server/lib/vibeAiClient.js — по-прежнему
 # непроверенное предположение (см. комментарий там же и deploy/README.md).
 # Если после деплоя `/api/analyze` отдаёт 502 — проверь путь AI Router и
@@ -106,28 +115,51 @@ else
   SID="$(printf '%s' "$RESP" | field id)"
   if [ -z "$SID" ]; then echo "❌ Сервер не создался: $RESP"; exit 1; fi
   printf '%s' "$SID" > "$IDFILE"
-  printf "   жду готовности сервера"
-  for _ in $(seq 1 30); do
-    if api "$API/infra/servers/$SID" | grep -q '"blackholeStatus":"CONNECTED"'; then break; fi
-    printf "."; sleep 6
-  done
-  echo " — готов"
 fi
 
-echo "→ 4/5  Заливаю приложение на сервер…"
-# runtime передаём и здесь тоже (не только при создании) — иначе
-# GALAXY_DEPLOY_RUNTIME_REQUIRED повторяется на каждом повторном деплое.
-DRESP="$(api -X POST "$API/infra/servers/$SID/deploy?stream=false" \
+echo "→ 4/5  Заливаю приложение на сервер (тайм-аут 3 мин на сам запрос)…"
+# На Galaxy этот запрос не обязан синхронно вернуть готовый результат — не
+# считаем тайм-аут/обрыв здесь фатальным, реальную готовность всё равно
+# проверяем следующим шагом через status=running.
+DRESP="$(api --max-time 180 -X POST "$API/infra/servers/$SID/deploy?stream=false" \
     -F "archive=@$WORK/app.tgz" -F "runtime=$RUNTIME_IMAGE" \
     -F "start=node server/index.js" -F "port=3000" -F "cleanDeploy=true")"
-if ! printf '%s' "$DRESP" | grep -q '"success":true'; then
-  echo "❌ Деплой не удался:"; echo "$DRESP"; exit 1
+CURL_EXIT=$?
+if [ "$CURL_EXIT" -ne 0 ]; then
+  echo "⚠️  Запрос не дождался ответа за 3 мин (curl exit $CURL_EXIT) — возможно, сборка"
+  echo "    продолжается на сервере в фоне. Проверяю статус напрямую…"
+elif printf '%s' "$DRESP" | grep -q '"error"'; then
+  echo "❌ Деплой отклонён:"; echo "$DRESP"; exit 1
 fi
-URL="$(printf '%s' "$DRESP" | field appUrl)"
+
+echo "   Жду сборку контейнера (status=running)…"
+URL=""
+for _ in $(seq 1 60); do
+  INFO="$(api "$API/infra/servers/$SID")"
+  ST="$(printf '%s' "$INFO" | field status)"
+  case "$ST" in
+    running)
+      URL="$(printf '%s' "$INFO" | field appUrl)"
+      [ -z "$URL" ] && URL="$(printf '%s' "$INFO" | grep -oE 'https://[a-z0-9.-]+\.vibecode\.bitrix24\.tech' | head -1)"
+      break ;;
+    error)
+      echo; echo "❌ Сборка упала: $(printf '%s' "$INFO" | field provisionError)"
+      echo "$INFO"; exit 1 ;;
+  esac
+  printf "."; sleep 6
+done
+echo
+if [ -z "$URL" ]; then
+  echo "⚠️  Не дождался status=running за ~6 мин. Проверь вручную:"
+  echo "   curl -H \"X-Api-Key: \$VIBE_KEY\" $API/infra/servers/$SID"
+  exit 1
+fi
 
 echo "→ 5/5  Делаю сайт публичным и не засыпающим…"
 api -X PATCH "$API/infra/servers/$SID/access-policy" -H "Content-Type: application/json" -d '{"accessPolicy":"PUBLIC"}' >/dev/null
-api -X PATCH "$API/infra/servers/$SID/sleep"         -H "Content-Type: application/json" -d '{"sleepAfterMinutes":null}' >/dev/null
+# У Galaxy-приложений нет режима сна — если платформа ответит ошибкой на этот
+# запрос, это не страшно, поэтому результат намеренно не проверяем.
+api -X PATCH "$API/infra/servers/$SID/sleep" -H "Content-Type: application/json" -d '{"sleepAfterMinutes":null}' >/dev/null 2>&1 || true
 
 echo
 echo "✅ Готово! Твой сайт онлайн:"
