@@ -21,25 +21,26 @@
 # используется приложением в рантайме для вызова AI Router VibeCode
 # (модель bitrix/bitrixgpt-5.5, см. server/lib/vibeAiClient.js) — и ведёт
 # серверный счётчик прогонов. Поэтому вместо runtime=static (только nginx)
-# здесь запрашивается runtime=node.
+# здесь запрашивается runtime=node20.
 #
-# ⚠️ ВАЖНО: значение RUNTIME_IMAGE ниже, а также базовый URL AI Router в
-# server/lib/vibeAiClient.js — это ПРЕДПОЛОЖЕНИЯ. У автора этого скрипта не
-# было доступа к vibecode.bitrix24.tech, чтобы проверить точное имя
-# Node-рантайма и путь AI Router на платформе (сессия работала в песочнице
-# с ограничением исходящего трафика). Если создание сервера упадёт с
-# ошибкой про image/runtime — посмотри доступные варианты в личном
-# кабинете VibeCode или через
-#   curl -H "X-Api-Key: $VIBE_KEY" https://vibecode.bitrix24.tech/v1/infra/providers/bitrix-cloud/images
-# и поправь RUNTIME_IMAGE. Если после деплоя `/api/analyze` отдаёт 502 —
-# проверь путь AI Router и формат авторизации в личном кабинете (см.
-# VIBE_AI_BASE_URL в .env.example и комментарий в vibeAiClient.js).
+# Платформа деплоит такие приложения как GALAXY-контейнер (общий хост), а не
+# отдельную VM — и в этом режиме runtime нужно передавать в КАЖДОМ запросе
+# деплоя (и при первом создании, и при каждом обновлении), иначе платформа
+# отвечает GALAXY_DEPLOY_RUNTIME_REQUIRED. Раньше runtime передавался только
+# при создании сервера (по образцу standalone-VM скрипта из
+# vibecoders-front-ui-gallery/deploy/deploy.sh) — из-за этого повторный
+# деплой на уже существующий сервер падал с той же ошибкой.
+#
+# ⚠️ Базовый URL AI Router в server/lib/vibeAiClient.js — по-прежнему
+# непроверенное предположение (см. комментарий там же и deploy/README.md).
+# Если после деплоя `/api/analyze` отдаёт 502 — проверь путь AI Router и
+# формат авторизации в личном кабинете VibeCode.
 
 API="https://vibecode.bitrix24.tech/v1"
 PLAN="bc-small"                    # тариф сервера (дешевле — bc-agent)
 REGION="ru-central1-a"             # дата-центр (Москва)
 NAME="article-quality-checker"     # имя сервера на платформе
-RUNTIME_IMAGE="node"               # см. предупреждение выше
+RUNTIME_IMAGE="node20"
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
@@ -94,16 +95,14 @@ EOF
 ( cd "$WORK/stage" && npm ci --omit=dev --ignore-scripts >/dev/null ) || { echo "❌ npm ci упал"; exit 1; }
 tar -czf "$WORK/app.tgz" -C "$WORK/stage" .
 
-RUNTIME=()
 if [ -f "$IDFILE" ]; then
   SID="$(cat "$IDFILE")"
   echo "→ 3/5  Использую существующий сервер: $SID"
 else
-  RUNTIME=(-F "runtime=$RUNTIME_IMAGE")
   echo "→ 3/5  Создаю сервер ($PLAN, $REGION, runtime=$RUNTIME_IMAGE)… (это платный шаг)"
   IMAGE="$(api "$API/infra/providers/bitrix-cloud/images" | field id)"
   RESP="$(api -X POST "$API/infra/servers" -H "Content-Type: application/json" \
-      -d "{\"provider\":\"bitrix-cloud\",\"name\":\"$NAME\",\"plan\":\"$PLAN\",\"region\":\"$REGION\",\"image\":\"$IMAGE\"}")"
+      -d "{\"provider\":\"bitrix-cloud\",\"name\":\"$NAME\",\"plan\":\"$PLAN\",\"region\":\"$REGION\",\"image\":\"$IMAGE\",\"runtime\":\"$RUNTIME_IMAGE\"}")"
   SID="$(printf '%s' "$RESP" | field id)"
   if [ -z "$SID" ]; then echo "❌ Сервер не создался: $RESP"; exit 1; fi
   printf '%s' "$SID" > "$IDFILE"
@@ -116,8 +115,10 @@ else
 fi
 
 echo "→ 4/5  Заливаю приложение на сервер…"
+# runtime передаём и здесь тоже (не только при создании) — иначе
+# GALAXY_DEPLOY_RUNTIME_REQUIRED повторяется на каждом повторном деплое.
 DRESP="$(api -X POST "$API/infra/servers/$SID/deploy?stream=false" \
-    -F "archive=@$WORK/app.tgz" "${RUNTIME[@]}" \
+    -F "archive=@$WORK/app.tgz" -F "runtime=$RUNTIME_IMAGE" \
     -F "start=node server/index.js" -F "port=3000" -F "cleanDeploy=true")"
 if ! printf '%s' "$DRESP" | grep -q '"success":true'; then
   echo "❌ Деплой не удался:"; echo "$DRESP"; exit 1
