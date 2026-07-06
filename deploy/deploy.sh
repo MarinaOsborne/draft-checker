@@ -110,20 +110,37 @@ tar -czf "$WORK/app.tgz" -C "$WORK/stage" .
   printf '"}}'
 } > "$WORK/body.json"
 
+DEPLOY_TIMEOUT_OPTS=(--connect-timeout 15 --max-time 240)
+
 if [ -f "$IDFILE" ]; then
   SID="$(cat "$IDFILE")"
-  echo "→ 3/5  Передеплой существующего приложения: $SID"
-  RESP="$(api -X POST "$API/infra/servers/$SID/deploy?stream=false" \
+  echo "→ 3/5  Передеплой существующего приложения: $SID (тайм-аут 4 мин на сам запрос)…"
+  # На Galaxy этот запрос не обязан синхронно вернуть готовый результат —
+  # тайм-аут/обрыв здесь не фатален, реальную готовность всё равно
+  # проверяем следующим шагом через status=running.
+  RESP="$(api "${DEPLOY_TIMEOUT_OPTS[@]}" -X POST "$API/infra/servers/$SID/deploy?stream=false" \
       -H "Content-Type: application/json" --data-binary @"$WORK/body.json")"
-  if printf '%s' "$RESP" | grep -q '"error"'; then
+  CURL_EXIT=$?
+  if [ "$CURL_EXIT" -ne 0 ]; then
+    echo "⚠️  Запрос не дождался ответа за 4 мин (curl exit $CURL_EXIT) — возможно, сборка"
+    echo "    продолжается на сервере в фоне. Проверяю статус напрямую…"
+  elif printf '%s' "$RESP" | grep -q '"error"'; then
     echo "❌ Деплой отклонён:"; echo "$RESP"; exit 1
   fi
 else
   echo "→ 3/5  Создаю приложение (one-shot, с исходниками)… (это платный шаг)"
   SID=""
   for attempt in $(seq 1 5); do
-    RESP="$(api -X POST "$API/infra/servers" \
+    RESP="$(api "${DEPLOY_TIMEOUT_OPTS[@]}" -X POST "$API/infra/servers" \
         -H "Content-Type: application/json" --data-binary @"$WORK/body.json")"
+    CURL_EXIT=$?
+    if [ "$CURL_EXIT" -ne 0 ]; then
+      echo "❌ Запрос создания не дождался ответа за 4 мин (curl exit $CURL_EXIT)."
+      echo "   ВАЖНО: приложение могло всё же создаться на сервере, несмотря на то что"
+      echo "   ответ до нас не дошёл. Прежде чем повторять — открой личный кабинет"
+      echo "   VibeCode и проверь, нет ли уже приложения «$NAME», чтобы не создать дубль."
+      exit 1
+    fi
     SID="$(printf '%s' "$RESP" | field id)"
     [ -n "$SID" ] && break
     # Ретраим ТОЛЬКО «мигание» режима портала; любую другую ошибку — наружу
