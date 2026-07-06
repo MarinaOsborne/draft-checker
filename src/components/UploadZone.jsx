@@ -14,6 +14,7 @@ function FileSlot({ title, subtitle, file, wordCount, accentColor, onSelect }) {
         borderRadius: 12,
         padding: "14px 16px",
         cursor: "pointer",
+        minWidth: 0,
       }}
     >
       <input
