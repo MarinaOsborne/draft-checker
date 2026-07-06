@@ -4,5 +4,6 @@ data/
 .env
 .env.local
 deploy/.vibe-server
+deploy/.env.deploy
 *.log
 .DS_Store

@@ -1,11 +1,19 @@
 #!/usr/bin/env bash
 #
-# Выложить Article Quality Checker на Bitrix24 VibeCode одной командой:
+# Выложить Article Quality Checker на Bitrix24 VibeCode:
 #
-#   VIBE_KEY=vibe_api_ВАШ_КЛЮЧ \
-#   ANTHROPIC_API_KEY=sk-ant-ВАШ_КЛЮЧ \
-#   ACCESS_PIN=2847 \
 #   bash deploy/deploy.sh
+#
+# Секреты (VIBE_KEY, ANTHROPIC_API_KEY, ACCESS_PIN) скрипт берёт по приоритету:
+#   1. уже экспортированные переменные окружения (например, из CI);
+#   2. файл deploy/.env.deploy (в гит не попадает — см. .gitignore); заведи
+#      его один раз командой `cp deploy/.env.deploy.example deploy/.env.deploy`
+#      и впиши туда ключи — при повторных деплоях набирать их заново не надо;
+#   3. если нигде не нашлись — скрипт спросит их интерактивно через `read -s`,
+#      без вывода на экран и без попадания в историю шелла.
+#
+# Так ключи не остаются в истории команд (`.bash_history`/`.zsh_history`) и не
+# светятся в выводе `ps aux` как аргументы командной строки.
 #
 # В отличие от чисто статических сайтов, этому приложению нужен постоянно
 # работающий Node/Express-процесс: он держит ANTHROPIC_API_KEY на сервере
@@ -29,15 +37,31 @@ RUNTIME_IMAGE="node"               # см. предупреждение выше
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
-IDFILE="$HERE/.vibe-server"   # сюда запомним id созданного сервера (в гит не нужен)
+IDFILE="$HERE/.vibe-server"      # сюда запомним id созданного сервера (в гит не нужен)
+ENVFILE="$HERE/.env.deploy"      # сюда можно один раз положить ключи (в гит не нужен)
+
+# 2. Файл deploy/.env.deploy, если он есть и переменная ещё не задана снаружи.
+if [ -f "$ENVFILE" ]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "$ENVFILE"
+  set +a
+fi
+
+# 3. Если ключей всё ещё нет — спрашиваем интерактивно, без эха на экран.
+if [ -z "${VIBE_KEY:-}" ]; then
+  read -rsp "VIBE_KEY (vibe_api_...): " VIBE_KEY; echo
+fi
+if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
+  read -rsp "ANTHROPIC_API_KEY (sk-ant-...): " ANTHROPIC_API_KEY; echo
+fi
 
 if [ -z "${VIBE_KEY:-}" ]; then
-  echo "❌ Не задан VIBE_KEY. Запусти так:"
-  echo "   VIBE_KEY=vibe_api_... ANTHROPIC_API_KEY=sk-ant-... bash deploy/deploy.sh"
+  echo "❌ VIBE_KEY не задан."
   exit 1
 fi
 if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
-  echo "❌ Не задан ANTHROPIC_API_KEY — без него /api/analyze не сможет вызвать Claude."
+  echo "❌ ANTHROPIC_API_KEY не задан — без него /api/analyze не сможет вызвать Claude."
   exit 1
 fi
 ACCESS_PIN="${ACCESS_PIN:-2847}"
