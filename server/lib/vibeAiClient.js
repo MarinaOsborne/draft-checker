@@ -1,3 +1,18 @@
+// Вызывает модель через AI Router платформы VibeCode (vibecode.bitrix24.tech),
+// а не напрямую OpenAI/Anthropic — используется тот же ключ VIBE_KEY, что и
+// для деплоя. Роутер OpenAI-совместим, поэтому берём готовый SDK `openai` и
+// просто указываем ему другой baseURL/ключ.
+//
+// ⚠️ ПРЕДПОЛОЖЕНИЕ: VIBE_AI_BASE_URL и формат аутентификации ниже не были
+// проверены — у автора не было сетевого доступа к vibecode.bitrix24.tech
+// (заблокировано политикой песочницы). Судя по остальным эндпоинтам платформы
+// (deploy/deploy.sh использует `${API}/infra/...` c заголовком `X-Api-Key`),
+// путь роутера, скорее всего, `${API}/ai`, а сам роутер — OpenAI-совместимый
+// `/chat/completions`. Если запросы будут падать (404/401) — проверь
+// настоящий путь и заголовок авторизации в личном кабинете VibeCode
+// (документация: https://vibecode.bitrix24.tech/v1/me) и поправь
+// VIBE_AI_BASE_URL / заголовок ниже.
+
 import OpenAI from "openai";
 
 const SYSTEM_PROMPT = `You are an expert editorial reviewer for Bitrix24's multilingual content team.
@@ -88,13 +103,21 @@ function normalize(parsed) {
 let client;
 function getClient() {
   if (!client) {
-    client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const baseURL = process.env.VIBE_AI_BASE_URL || "https://vibecode.bitrix24.tech/v1/ai";
+    client = new OpenAI({
+      apiKey: process.env.VIBE_KEY || "vibecode",
+      baseURL,
+      // Шлём ключ и как Bearer (стандарт для OpenAI SDK), и как X-Api-Key
+      // (формат остальных эндпоинтов VibeCode) — на случай, если роутер
+      // ожидает именно его.
+      defaultHeaders: { "X-Api-Key": process.env.VIBE_KEY || "" },
+    });
   }
   return client;
 }
 
 export async function analyzeArticle({ draftText, finalText, language }) {
-  const model = process.env.OPENAI_MODEL || "gpt-4o";
+  const model = process.env.VIBE_AI_MODEL || "bitrix/bitrixgpt-5.5";
   const userMessage = `Target language of the FINAL TEXT: ${language}
 
 AI DRAFT:
@@ -118,7 +141,7 @@ ${finalText}
 
   const text = response.choices?.[0]?.message?.content;
   if (!text) {
-    throw new Error("OpenAI не вернул текстовый ответ");
+    throw new Error("AI Router не вернул текстовый ответ");
   }
   const parsed = extractJson(text);
   return normalize(parsed);
