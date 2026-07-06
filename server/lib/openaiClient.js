@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 
 const SYSTEM_PROMPT = `You are an expert editorial reviewer for Bitrix24's multilingual content team.
 
@@ -88,13 +88,13 @@ function normalize(parsed) {
 let client;
 function getClient() {
   if (!client) {
-    client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   }
   return client;
 }
 
 export async function analyzeArticle({ draftText, finalText, language }) {
-  const model = process.env.CLAUDE_MODEL || "claude-sonnet-4-6";
+  const model = process.env.OPENAI_MODEL || "gpt-4o";
   const userMessage = `Target language of the FINAL TEXT: ${language}
 
 AI DRAFT:
@@ -107,17 +107,19 @@ FINAL TEXT:
 ${finalText}
 """`;
 
-  const response = await getClient().messages.create({
+  const response = await getClient().chat.completions.create({
     model,
-    max_tokens: 4096,
-    system: SYSTEM_PROMPT,
-    messages: [{ role: "user", content: userMessage }],
+    response_format: { type: "json_object" },
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: userMessage },
+    ],
   });
 
-  const textBlock = response.content.find((b) => b.type === "text");
-  if (!textBlock) {
-    throw new Error("Claude не вернул текстовый ответ");
+  const text = response.choices?.[0]?.message?.content;
+  if (!text) {
+    throw new Error("OpenAI не вернул текстовый ответ");
   }
-  const parsed = extractJson(textBlock.text);
+  const parsed = extractJson(text);
   return normalize(parsed);
 }

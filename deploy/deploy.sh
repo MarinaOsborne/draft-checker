@@ -4,7 +4,7 @@
 #
 #   bash deploy/deploy.sh
 #
-# Секреты (VIBE_KEY, ANTHROPIC_API_KEY, ACCESS_PIN) скрипт берёт по приоритету:
+# Секреты (VIBE_KEY, OPENAI_API_KEY, ACCESS_PIN) скрипт берёт по приоритету:
 #   1. уже экспортированные переменные окружения (например, из CI);
 #   2. файл deploy/.env.deploy (в гит не попадает — см. .gitignore); заведи
 #      его один раз командой `cp deploy/.env.deploy.example deploy/.env.deploy`
@@ -16,7 +16,7 @@
 # светятся в выводе `ps aux` как аргументы командной строки.
 #
 # В отличие от чисто статических сайтов, этому приложению нужен постоянно
-# работающий Node/Express-процесс: он держит ANTHROPIC_API_KEY на сервере
+# работающий Node/Express-процесс: он держит OPENAI_API_KEY на сервере
 # (ключ никогда не должен попасть в браузер) и ведёт серверный счётчик
 # прогонов. Поэтому вместо runtime=static (только nginx) здесь запрашивается
 # runtime=node.
@@ -52,20 +52,20 @@ fi
 if [ -z "${VIBE_KEY:-}" ]; then
   read -rsp "VIBE_KEY (vibe_api_...): " VIBE_KEY; echo
 fi
-if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
-  read -rsp "ANTHROPIC_API_KEY (sk-ant-...): " ANTHROPIC_API_KEY; echo
+if [ -z "${OPENAI_API_KEY:-}" ]; then
+  read -rsp "OPENAI_API_KEY (sk-...): " OPENAI_API_KEY; echo
 fi
 
 if [ -z "${VIBE_KEY:-}" ]; then
   echo "❌ VIBE_KEY не задан."
   exit 1
 fi
-if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
-  echo "❌ ANTHROPIC_API_KEY не задан — без него /api/analyze не сможет вызвать Claude."
+if [ -z "${OPENAI_API_KEY:-}" ]; then
+  echo "❌ OPENAI_API_KEY не задан — без него /api/analyze не сможет вызвать OpenAI."
   exit 1
 fi
 ACCESS_PIN="${ACCESS_PIN:-2847}"
-CLAUDE_MODEL="${CLAUDE_MODEL:-claude-sonnet-4-6}"
+OPENAI_MODEL="${OPENAI_MODEL:-gpt-4o}"
 
 api() { curl -s -H "X-Api-Key: $VIBE_KEY" "$@"; }
 # вытащить строковое поле из JSON-ответа (чтобы не зависеть от jq)
@@ -87,8 +87,8 @@ cp "$ROOT/package.json" "$WORK/stage/"
 # так деплой не зависит от того, поддерживает ли VibeCode свой механизм env-переменных.
 cat > "$WORK/stage/.env" <<EOF
 ACCESS_PIN=$ACCESS_PIN
-ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY
-CLAUDE_MODEL=$CLAUDE_MODEL
+OPENAI_API_KEY=$OPENAI_API_KEY
+OPENAI_MODEL=$OPENAI_MODEL
 EOF
 ( cd "$WORK/stage" && npm ci --omit=dev --ignore-scripts >/dev/null ) || { echo "❌ npm ci упал"; exit 1; }
 tar -czf "$WORK/app.tgz" -C "$WORK/stage" .

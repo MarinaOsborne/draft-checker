@@ -1,14 +1,14 @@
 # Деплой Article Quality Checker на VibeCode
 
 Это внутренний инструмент с бэкендом на Express: он парсит `.docx`, хранит
-серверный счётчик прогонов и вызывает Claude API, не показывая ключ в
+серверный счётчик прогонов и вызывает OpenAI API, не показывая ключ в
 браузере. Поэтому — в отличие от чисто статических сайтов — приложению нужен
 постоянно работающий Node-процесс, а не просто nginx со статикой.
 
 ## Что нужно один раз
 
 - **Ключ VibeCode** (`vibe_api_…`) — в личном кабинете VibeCode, раздел «Ключи API».
-- **Ключ Anthropic** (`sk-ant-…`) — используется только на сервере, в браузер не попадает.
+- **Ключ OpenAI** (`sk-…`) — используется только на сервере, в браузер не попадает.
 - Активная подписка **BitrixGPT + Маркетплейс** на портале — без неё платформа не выдаёт серверы.
 - **Node.js** (сборка сайта и упаковка зависимостей идут локально).
 
@@ -17,11 +17,11 @@
 Ключи можно передать тремя способами (скрипт проверяет их в этом порядке):
 
 1. **Уже экспортированные переменные окружения** (например, секреты CI) —
-   `VIBE_KEY`, `ANTHROPIC_API_KEY`, `ACCESS_PIN`.
+   `VIBE_KEY`, `OPENAI_API_KEY`, `ACCESS_PIN`.
 2. **Файл `deploy/.env.deploy`** — самый удобный для повторных деплоев:
    ```bash
    cp deploy/.env.deploy.example deploy/.env.deploy
-   $EDITOR deploy/.env.deploy   # впиши VIBE_KEY / ANTHROPIC_API_KEY / ACCESS_PIN
+   $EDITOR deploy/.env.deploy   # впиши VIBE_KEY / OPENAI_API_KEY / ACCESS_PIN
    ```
    Файл в `.gitignore`, в репозиторий не попадает.
 3. **Интерактивный запрос** — если ключей нет ни в окружении, ни в файле,
@@ -37,8 +37,8 @@
 bash deploy/deploy.sh
 ```
 
-`ACCESS_PIN` необязателен — по умолчанию `2847` (как в ТЗ). `CLAUDE_MODEL`
-тоже можно переопределить, по умолчанию `claude-sonnet-4-6`.
+`ACCESS_PIN` необязателен — по умолчанию `2847` (как в ТЗ). `OPENAI_MODEL`
+тоже можно переопределить, по умолчанию `gpt-4o`.
 
 Скрипт соберёт фронтенд (`npm run build`), поставит прод-зависимости сервера
 в отдельный staging-каталог, положит секреты в `.env` **внутри архива**
@@ -73,7 +73,7 @@ curl -H "X-Api-Key: $VIBE_KEY" \
 ## Локальная проверка перед деплоем
 
 ```bash
-cp .env.example .env   # заполни ACCESS_PIN / ANTHROPIC_API_KEY
+cp .env.example .env   # заполни ACCESS_PIN / OPENAI_API_KEY
 npm install
 npm run dev             # vite (5173) + express (3000) с прокси /api
 ```
@@ -89,4 +89,4 @@ npm start                # обслуживает dist/ и /api на одном 
 
 - **«Сервер не создался» / ошибка 402** — пополни баланс VibeCode или проверь подписку BitrixGPT + Маркетплейс.
 - **Хочешь дешевле** — поменяй `PLAN` в `deploy/deploy.sh` на `bc-agent`, или включи авто-сон, заменив `"sleepAfterMinutes":null` на `"sleepAfterMinutes":60`.
-- **502 от `/api/analyze`** — проверь, что `ANTHROPIC_API_KEY` валиден и что модель `CLAUDE_MODEL` существует в твоём аккаунте Anthropic.
+- **502 от `/api/analyze`** — проверь, что `OPENAI_API_KEY` валиден и что модель `OPENAI_MODEL` доступна в твоём аккаунте OpenAI.
