@@ -12,6 +12,14 @@ function bucket(val, t) {
   return { color: ERROR, type: "crit", tag: t.tag.weak };
 }
 
+const MAX_HVA_SCORE = 30;
+
+function hvaGrade(total, t) {
+  if (total <= 10) return { label: t.humanValueAdded.grade.needsWork, color: ERROR };
+  if (total <= 20) return { label: t.humanValueAdded.grade.good, color: WARNING };
+  return { label: t.humanValueAdded.grade.excellent, color: SUCCESS };
+}
+
 const sectionLabelStyle = {
   fontSize: 10,
   fontWeight: 700,
@@ -22,19 +30,8 @@ const sectionLabelStyle = {
   marginBottom: 10,
 };
 
-function ScoreFlowItem({ label, value, color }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: 84 }}>
-      <div style={{ fontSize: 22, fontWeight: 700, color: color || DARK, lineHeight: 1 }}>{value}</div>
-      <div style={{ fontSize: 11, color: "#888", marginTop: 4, textAlign: "center" }}>{label}</div>
-    </div>
-  );
-}
-
-function HumanValueAdded({ draftScore, finalScore, hva, verdict, verdictText, t }) {
+function HumanValueAdded({ hva, verdict, verdictText, t }) {
   const isReady = verdict === "ready";
-  const delta = finalScore - draftScore;
-  const deltaColor = delta > 0 ? SUCCESS : delta < 0 ? ERROR : WARNING;
   const metrics = [
     [hva.statistics_added, t.humanValueAdded.statisticsAdded],
     [hva.real_world_examples_added, t.humanValueAdded.realWorldExamplesAdded],
@@ -42,6 +39,9 @@ function HumanValueAdded({ draftScore, finalScore, hva, verdict, verdictText, t 
     [hva.ai_cliches_removed, t.humanValueAdded.aiClichesRemoved],
     [hva.filler_sentences_removed, t.humanValueAdded.fillerSentencesRemoved],
   ];
+  const total = metrics.reduce((sum, [n]) => sum + n, 0);
+  const displayTotal = Math.min(total, MAX_HVA_SCORE);
+  const grade = hvaGrade(displayTotal, t);
 
   return (
     <>
@@ -60,22 +60,34 @@ function HumanValueAdded({ draftScore, finalScore, hva, verdict, verdictText, t 
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            padding: "16px 18px",
+            padding: "14px 18px",
             borderBottom: "1px solid #eee",
             flexWrap: "wrap",
-            gap: 12,
+            gap: 10,
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <ScoreFlowItem label={t.humanValueAdded.aiDraftQuality} value={`${draftScore}/100`} />
-            <span style={{ fontSize: 18, color: "#ccc" }}>→</span>
-            <ScoreFlowItem label={t.humanValueAdded.finalArticleQuality} value={`${finalScore}/100`} />
-            <span style={{ fontSize: 18, color: "#ccc" }}>→</span>
-            <ScoreFlowItem
-              label={t.humanValueAdded.heading}
-              value={`${delta > 0 ? "+" : ""}${delta}`}
-              color={deltaColor}
-            />
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <div
+              style={{
+                width: 54,
+                height: 54,
+                borderRadius: "50%",
+                border: `3px solid ${grade.color}`,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <span style={{ fontSize: 16, fontWeight: 700, color: grade.color, lineHeight: 1 }}>
+                {displayTotal}/{MAX_HVA_SCORE}
+              </span>
+            </div>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: DARK }}>{t.humanValueAdded.heading}</div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: grade.color, marginTop: 2 }}>{grade.label}</div>
+            </div>
           </div>
           <div
             style={{
@@ -94,24 +106,10 @@ function HumanValueAdded({ draftScore, finalScore, hva, verdict, verdictText, t 
 
         <div
           style={{
-            fontSize: 10,
-            fontWeight: 700,
-            textTransform: "uppercase",
-            letterSpacing: "0.06em",
-            color: "#aaa",
-            padding: "12px 18px 0",
-          }}
-        >
-          {t.humanValueAdded.detailsHeading}
-        </div>
-
-        <div
-          style={{
             display: "grid",
             gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
             gap: 1,
             background: "#eee",
-            marginTop: 10,
           }}
         >
           {metrics.map(([n, label]) => (
@@ -219,14 +217,7 @@ function CriteriaBreakdown({ criteria, redFlags, t }) {
 export default function ScoreCard({ result, t }) {
   return (
     <>
-      <HumanValueAdded
-        draftScore={result.ai_draft_quality}
-        finalScore={result.final_article_quality}
-        hva={result.human_value_added}
-        verdict={result.verdict}
-        verdictText={result.verdict_text}
-        t={t}
-      />
+      <HumanValueAdded hva={result.human_value_added} verdict={result.verdict} verdictText={result.verdict_text} t={t} />
       <CriteriaBreakdown criteria={result.criteria} redFlags={result.red_flags} t={t} />
     </>
   );
