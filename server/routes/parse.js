@@ -6,7 +6,7 @@ import { requirePin } from "../middleware/requirePin.js";
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 15 * 1024 * 1024 },
+  limits: { fileSize: 2 * 1024 * 1024 },
 });
 
 const router = Router();
@@ -30,7 +30,7 @@ function handleUpload(req, res, next) {
   upload.single("file")(req, res, (err) => {
     if (!err) return next();
     if (err.code === "LIMIT_FILE_SIZE") {
-      return res.status(413).json({ error: "Файл слишком большой (максимум 15 МБ)", code: "file_too_large" });
+      return res.status(413).json({ error: "Файл слишком большой. Максимальный размер — 2 МБ", code: "file_too_large" });
     }
     console.error("Multer upload failed:", err);
     res.status(400).json({ error: "Не удалось загрузить файл", code: "upload_failed" });
