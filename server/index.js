@@ -7,6 +7,7 @@ import pinRoutes from "./routes/pin.js";
 import parseRoutes from "./routes/parse.js";
 import runsRoutes from "./routes/runs.js";
 import analyzeRoutes from "./routes/analyze.js";
+import healthRoutes from "./routes/health.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIST_DIR = path.join(__dirname, "..", "dist");
@@ -19,6 +20,7 @@ app.use("/api", pinRoutes);
 app.use("/api", parseRoutes);
 app.use("/api", runsRoutes);
 app.use("/api", analyzeRoutes);
+app.use("/api", healthRoutes);
 
 app.use(express.static(DIST_DIR));
 app.get(/^(?!\/api).*/, (req, res) => {
