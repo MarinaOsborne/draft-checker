@@ -12,6 +12,14 @@ function bucket(val, t) {
   return { color: ERROR, type: "crit", tag: t.tag.weak };
 }
 
+const MAX_HVA_SCORE = 30;
+
+function hvaGrade(total, t) {
+  if (total <= 10) return { label: t.humanValueAdded.grade.needsWork, color: ERROR };
+  if (total <= 20) return { label: t.humanValueAdded.grade.good, color: WARNING };
+  return { label: t.humanValueAdded.grade.excellent, color: SUCCESS };
+}
+
 const sectionLabelStyle = {
   fontSize: 10,
   fontWeight: 700,
@@ -32,6 +40,8 @@ function HumanValueAdded({ hva, verdict, verdictText, t }) {
     [hva.filler_sentences_removed, t.humanValueAdded.fillerSentencesRemoved],
   ];
   const total = metrics.reduce((sum, [n]) => sum + n, 0);
+  const displayTotal = Math.min(total, MAX_HVA_SCORE);
+  const grade = hvaGrade(displayTotal, t);
 
   return (
     <>
@@ -62,16 +72,22 @@ function HumanValueAdded({ hva, verdict, verdictText, t }) {
                 width: 54,
                 height: 54,
                 borderRadius: "50%",
-                border: `3px solid ${BLUE}`,
+                border: `3px solid ${grade.color}`,
                 display: "flex",
+                flexDirection: "column",
                 alignItems: "center",
                 justifyContent: "center",
                 flexShrink: 0,
               }}
             >
-              <span style={{ fontSize: 22, fontWeight: 700, color: BLUE, lineHeight: 1 }}>{total}</span>
+              <span style={{ fontSize: 16, fontWeight: 700, color: grade.color, lineHeight: 1 }}>
+                {displayTotal}/{MAX_HVA_SCORE}
+              </span>
             </div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: DARK }}>{t.humanValueAdded.heading}</div>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: DARK }}>{t.humanValueAdded.heading}</div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: grade.color, marginTop: 2 }}>{grade.label}</div>
+            </div>
           </div>
           <div
             style={{
