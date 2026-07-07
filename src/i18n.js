@@ -32,7 +32,7 @@ const dict = {
       body: (filename, max) => `${max}/${max} runs used for file ${filename}.`,
       contact: "Contact your manager to reset the limit.",
     },
-    score: { heading: "Overall score", ready: "✅ Ready to publish", notReady: "⚠️ Not ready to publish" },
+    score: { ready: "✅ Ready to publish", notReady: "⚠️ Not ready to publish" },
     criteria: {
       real_world_expertise: "Real-world expertise",
       ai_sterility: "AI sterility reduction",
@@ -55,6 +55,16 @@ const dict = {
       badRequest: "Missing required fields",
       analyzeFailed: "Could not get a review from AI Router VibeCode",
     },
+    humanValueAdded: {
+      heading: "Human Value Added",
+      statisticsAdded: "Statistics added",
+      realWorldExamplesAdded: "Real-world examples added",
+      bitrix24IntegrationsAdded: "Bitrix24 integrations added",
+      aiClichesRemoved: "AI clichés removed",
+      fillerSentencesRemoved: "Filler sentences removed",
+    },
+    criteriaEvidence: { noneGeneric: "No specific examples found", noAiPatterns: "No AI patterns detected" },
+    unnecessaryRewrites: { heading: "Unnecessary rewrites", none: "No unnecessary rewrites detected" },
   },
 
   ES: {
@@ -88,7 +98,7 @@ const dict = {
       body: (filename, max) => `Se usaron ${max}/${max} intentos para el archivo ${filename}.`,
       contact: "Contacta a tu gerente para restablecer el límite.",
     },
-    score: { heading: "Puntuación final", ready: "✅ Listo para publicar", notReady: "⚠️ No listo para publicar" },
+    score: { ready: "✅ Listo para publicar", notReady: "⚠️ No listo para publicar" },
     criteria: {
       real_world_expertise: "Experiencia del mundo real",
       ai_sterility: "Reducción de la esterilidad de IA",
@@ -111,6 +121,16 @@ const dict = {
       badRequest: "Faltan campos obligatorios",
       analyzeFailed: "No se pudo obtener una evaluación de AI Router VibeCode",
     },
+    humanValueAdded: {
+      heading: "Valor humano añadido",
+      statisticsAdded: "Estadísticas añadidas",
+      realWorldExamplesAdded: "Ejemplos reales añadidos",
+      bitrix24IntegrationsAdded: "Integraciones de Bitrix24 añadidas",
+      aiClichesRemoved: "Clichés de IA eliminados",
+      fillerSentencesRemoved: "Frases de relleno eliminadas",
+    },
+    criteriaEvidence: { noneGeneric: "No se encontraron ejemplos específicos", noAiPatterns: "No se detectaron patrones de IA" },
+    unnecessaryRewrites: { heading: "Reescrituras innecesarias", none: "No se detectaron reescrituras innecesarias" },
   },
 
   BR: {
@@ -144,7 +164,7 @@ const dict = {
       body: (filename, max) => `${max}/${max} tentativas usadas para o arquivo ${filename}.`,
       contact: "Entre em contato com seu gerente para redefinir o limite.",
     },
-    score: { heading: "Pontuação final", ready: "✅ Pronto para publicar", notReady: "⚠️ Não pronto para publicar" },
+    score: { ready: "✅ Pronto para publicar", notReady: "⚠️ Não pronto para publicar" },
     criteria: {
       real_world_expertise: "Experiência do mundo real",
       ai_sterility: "Redução da esterilidade da IA",
@@ -167,6 +187,16 @@ const dict = {
       badRequest: "Faltam campos obrigatórios",
       analyzeFailed: "Não foi possível obter uma avaliação do AI Router VibeCode",
     },
+    humanValueAdded: {
+      heading: "Valor humano agregado",
+      statisticsAdded: "Estatísticas adicionadas",
+      realWorldExamplesAdded: "Exemplos reais adicionados",
+      bitrix24IntegrationsAdded: "Integrações com o Bitrix24 adicionadas",
+      aiClichesRemoved: "Clichês de IA removidos",
+      fillerSentencesRemoved: "Frases de preenchimento removidas",
+    },
+    criteriaEvidence: { noneGeneric: "Nenhum exemplo específico encontrado", noAiPatterns: "Nenhum padrão de IA detectado" },
+    unnecessaryRewrites: { heading: "Reescritas desnecessárias", none: "Nenhuma reescrita desnecessária detectada" },
   },
 
   DE: {
@@ -200,7 +230,7 @@ const dict = {
       body: (filename, max) => `${max}/${max} Durchläufe für Datei ${filename} verwendet.`,
       contact: "Wende dich an deinen Manager, um das Limit zurückzusetzen.",
     },
-    score: { heading: "Gesamtbewertung", ready: "✅ Bereit zur Veröffentlichung", notReady: "⚠️ Nicht bereit zur Veröffentlichung" },
+    score: { ready: "✅ Bereit zur Veröffentlichung", notReady: "⚠️ Nicht bereit zur Veröffentlichung" },
     criteria: {
       real_world_expertise: "Praxisnähe",
       ai_sterility: "Reduzierung der KI-Sterilität",
@@ -223,6 +253,16 @@ const dict = {
       badRequest: "Pflichtfelder fehlen",
       analyzeFailed: "Es konnte keine Bewertung vom AI Router VibeCode abgerufen werden",
     },
+    humanValueAdded: {
+      heading: "Menschlicher Mehrwert",
+      statisticsAdded: "Hinzugefügte Statistiken",
+      realWorldExamplesAdded: "Hinzugefügte Praxisbeispiele",
+      bitrix24IntegrationsAdded: "Hinzugefügte Bitrix24-Integrationen",
+      aiClichesRemoved: "Entfernte KI-Klischees",
+      fillerSentencesRemoved: "Entfernte Füllsätze",
+    },
+    criteriaEvidence: { noneGeneric: "Keine konkreten Beispiele gefunden", noAiPatterns: "Keine KI-Muster erkannt" },
+    unnecessaryRewrites: { heading: "Unnötige Umformulierungen", none: "Keine unnötigen Umformulierungen erkannt" },
   },
 
   FR: {
@@ -256,7 +296,7 @@ const dict = {
       body: (filename, max) => `${max}/${max} essais utilisés pour le fichier ${filename}.`,
       contact: "Contactez votre responsable pour réinitialiser la limite.",
     },
-    score: { heading: "Score global", ready: "✅ Prêt à publier", notReady: "⚠️ Pas encore prêt à publier" },
+    score: { ready: "✅ Prêt à publier", notReady: "⚠️ Pas encore prêt à publier" },
     criteria: {
       real_world_expertise: "Expertise concrète",
       ai_sterility: "Réduction de la stérilité IA",
@@ -279,6 +319,16 @@ const dict = {
       badRequest: "Champs obligatoires manquants",
       analyzeFailed: "Impossible d'obtenir une évaluation depuis AI Router VibeCode",
     },
+    humanValueAdded: {
+      heading: "Valeur humaine ajoutée",
+      statisticsAdded: "Statistiques ajoutées",
+      realWorldExamplesAdded: "Exemples concrets ajoutés",
+      bitrix24IntegrationsAdded: "Intégrations Bitrix24 ajoutées",
+      aiClichesRemoved: "Clichés IA supprimés",
+      fillerSentencesRemoved: "Phrases de remplissage supprimées",
+    },
+    criteriaEvidence: { noneGeneric: "Aucun exemple spécifique trouvé", noAiPatterns: "Aucun motif IA détecté" },
+    unnecessaryRewrites: { heading: "Réécritures inutiles", none: "Aucune réécriture inutile détectée" },
   },
 
   TR: {
@@ -312,7 +362,7 @@ const dict = {
       body: (filename, max) => `${filename} dosyası için ${max}/${max} deneme kullanıldı.`,
       contact: "Limiti sıfırlamak için yöneticinize başvurun.",
     },
-    score: { heading: "Genel puan", ready: "✅ Yayına hazır", notReady: "⚠️ Yayına hazır değil" },
+    score: { ready: "✅ Yayına hazır", notReady: "⚠️ Yayına hazır değil" },
     criteria: {
       real_world_expertise: "Gerçek dünya uzmanlığı",
       ai_sterility: "Yapay zeka sterilliğinin azaltılması",
@@ -335,6 +385,16 @@ const dict = {
       badRequest: "Zorunlu alanlar eksik",
       analyzeFailed: "AI Router VibeCode'dan değerlendirme alınamadı",
     },
+    humanValueAdded: {
+      heading: "İnsan Katkısı",
+      statisticsAdded: "Eklenen istatistikler",
+      realWorldExamplesAdded: "Eklenen gerçek dünya örnekleri",
+      bitrix24IntegrationsAdded: "Eklenen Bitrix24 entegrasyonları",
+      aiClichesRemoved: "Kaldırılan yapay zeka klişeleri",
+      fillerSentencesRemoved: "Kaldırılan dolgu cümleleri",
+    },
+    criteriaEvidence: { noneGeneric: "Belirli bir örnek bulunamadı", noAiPatterns: "Yapay zeka paterni tespit edilmedi" },
+    unnecessaryRewrites: { heading: "Gereksiz yeniden yazımlar", none: "Gereksiz yeniden yazım tespit edilmedi" },
   },
 
   PL: {
@@ -368,7 +428,7 @@ const dict = {
       body: (filename, max) => `Wykorzystano ${max}/${max} prób dla pliku ${filename}.`,
       contact: "Skontaktuj się z menedżerem, aby zresetować limit.",
     },
-    score: { heading: "Ocena końcowa", ready: "✅ Gotowe do publikacji", notReady: "⚠️ Niegotowe do publikacji" },
+    score: { ready: "✅ Gotowe do publikacji", notReady: "⚠️ Niegotowe do publikacji" },
     criteria: {
       real_world_expertise: "Praktyczna wiedza",
       ai_sterility: "Redukcja sterylności AI",
@@ -391,6 +451,16 @@ const dict = {
       badRequest: "Brak wymaganych pól",
       analyzeFailed: "Nie udało się uzyskać oceny z AI Router VibeCode",
     },
+    humanValueAdded: {
+      heading: "Wartość dodana przez człowieka",
+      statisticsAdded: "Dodane statystyki",
+      realWorldExamplesAdded: "Dodane przykłady z życia",
+      bitrix24IntegrationsAdded: "Dodane integracje z Bitrix24",
+      aiClichesRemoved: "Usunięte frazesy AI",
+      fillerSentencesRemoved: "Usunięte zdania wypełniające",
+    },
+    criteriaEvidence: { noneGeneric: "Nie znaleziono konkretnych przykładów", noAiPatterns: "Nie wykryto wzorców AI" },
+    unnecessaryRewrites: { heading: "Niepotrzebne przeredagowania", none: "Nie wykryto niepotrzebnych przeredagowań" },
   },
 
   VN: {
@@ -424,7 +494,7 @@ const dict = {
       body: (filename, max) => `Đã dùng ${max}/${max} lượt cho tệp ${filename}.`,
       contact: "Liên hệ quản lý của bạn để đặt lại giới hạn.",
     },
-    score: { heading: "Điểm tổng thể", ready: "✅ Sẵn sàng xuất bản", notReady: "⚠️ Chưa sẵn sàng xuất bản" },
+    score: { ready: "✅ Sẵn sàng xuất bản", notReady: "⚠️ Chưa sẵn sàng xuất bản" },
     criteria: {
       real_world_expertise: "Kinh nghiệm thực tế",
       ai_sterility: "Giảm tính máy móc của AI",
@@ -447,6 +517,16 @@ const dict = {
       badRequest: "Thiếu thông tin bắt buộc",
       analyzeFailed: "Không thể nhận đánh giá từ AI Router VibeCode",
     },
+    humanValueAdded: {
+      heading: "Giá trị con người đóng góp",
+      statisticsAdded: "Số liệu thống kê đã thêm",
+      realWorldExamplesAdded: "Ví dụ thực tế đã thêm",
+      bitrix24IntegrationsAdded: "Tích hợp Bitrix24 đã thêm",
+      aiClichesRemoved: "Cụm từ sáo rỗng AI đã xóa",
+      fillerSentencesRemoved: "Câu thừa đã xóa",
+    },
+    criteriaEvidence: { noneGeneric: "Không tìm thấy ví dụ cụ thể", noAiPatterns: "Không phát hiện mẫu AI" },
+    unnecessaryRewrites: { heading: "Viết lại không cần thiết", none: "Không phát hiện viết lại không cần thiết" },
   },
 };
 

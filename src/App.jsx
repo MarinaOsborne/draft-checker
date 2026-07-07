@@ -6,6 +6,7 @@ import RunCounter from "./components/RunCounter.jsx";
 import ScoreCard from "./components/ScoreCard.jsx";
 import NotesList from "./components/NotesList.jsx";
 import TopEdits from "./components/TopEdits.jsx";
+import UnnecessaryRewrites from "./components/UnnecessaryRewrites.jsx";
 import DiffView from "./components/DiffView.jsx";
 import { parseDocx, getRunCount, resetRunCount, analyzeArticle, getMonthlyStatus, clearPin } from "./api.js";
 import { LANGS, MAX_RUNS, MAX_MONTHLY_RUNS, DARK } from "./constants.js";
@@ -246,6 +247,7 @@ export default function App() {
           <ScoreCard result={result} t={t} />
           <NotesList notes={result.notes} t={t} />
           <TopEdits edits={result.top_edits} t={t} />
+          <UnnecessaryRewrites data={result.unnecessary_rewrites} t={t} />
           <DiffView draftText={draft.text} finalText={final.text} t={t} />
         </>
       )}

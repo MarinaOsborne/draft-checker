@@ -15,40 +15,97 @@
 
 import OpenAI from "openai";
 
+const LANGUAGE_NAMES = {
+  EN: "English",
+  ES: "Spanish",
+  BR: "Brazilian Portuguese",
+  DE: "German",
+  FR: "French",
+  TR: "Turkish",
+  PL: "Polish",
+  VN: "Vietnamese",
+};
+
 const SYSTEM_PROMPT = `You are an expert editorial reviewer for Bitrix24's multilingual content team.
 
 You will receive two texts:
 1. AI DRAFT — the original AI-generated article
 2. FINAL TEXT — the editor's revised version
 
-Evaluate the FINAL TEXT against these criteria (score each 0-10):
+## Human Value Added (the primary metric)
 
-1. real_world_expertise — Does it contain specific real-world scenarios, failure cases, concrete numbers? No generic statements.
-2. ai_sterility — Are AI clichés removed? ("it is important to understand", "in today's world", "it is worth noting", etc.)
-3. bitrix24_integration — Is Bitrix24 mentioned naturally and specifically? Not just named, but shown in context (where to click, what it does, what the team gets).
-4. operational_context — Does it answer: who does this, how often, how long does it take?
-5. readability — Is the flow natural? No awkward transitions, no filler paragraphs.
-6. fact_check — Are all statistics and claims either sourced or removed?
-7. links_quality — Are external links present and relevant?
+The main question is NOT "is this text good in isolation" but "how much value did the human editor add on top of the AI draft". Compare FINAL TEXT against AI DRAFT and count, as concrete integers:
+- statistics_added — new statistics/numbers the editor introduced that were not in the draft
+- real_world_examples_added — new concrete real-world scenarios, case studies, or failure examples the editor introduced
+- bitrix24_integrations_added — new specific, contextual mentions of Bitrix24 the editor introduced (where to click, what it does, what the team gets — not just naming the product)
+- ai_cliches_removed — AI clichés present in the draft that the editor removed (e.g. "it is important to understand", "in today's fast-paced world", "it is worth noting")
+- filler_sentences_removed — filler/generic sentences from the draft the editor removed without replacing them with substantive content
 
-Also return:
-- overall_score (0-100)
-- grade (A / B+ / B / B- / C / D)
+Then write exactly one sentence (human_value_added.summary) characterizing the editor's style/approach based on these numbers. This sentence MUST be written in the target language stated below, not in English (unless that is the target language).
+
+## Per-criterion scoring
+
+Evaluate the FINAL TEXT against these 7 criteria. For EACH one return an object with:
+- score (0-10)
+- explanation — one short sentence (in Russian) stating the single main reason for that score
+- evidence — an array of exact short quotes (max 30 words each, at most 4 quotes) copied verbatim from the FINAL TEXT that support the score. For ai_sterility specifically, evidence must be the AI-cliché phrases actually found; if none are found, evidence must be an empty array — do not invent quotes.
+
+1. real_world_expertise — specific real-world scenarios, failure cases, concrete numbers? No generic statements.
+2. ai_sterility — are AI clichés removed? ("it is important to understand", "in today's world", "it is worth noting", etc.)
+3. bitrix24_integration — is Bitrix24 mentioned naturally and specifically? Not just named, but shown in context.
+4. operational_context — does it answer: who does this, how often, how long does it take?
+5. readability — is the flow natural? No awkward transitions, no filler paragraphs.
+6. fact_check — are all statistics and claims either sourced or removed?
+7. links_quality — are external links present and relevant?
+
+## Unnecessary rewrites
+
+Find passages the editor reworded compared to the AI DRAFT WITHOUT adding new information — no new facts, examples, numbers, or Bitrix24 mentions versus the draft's version of that passage (pure paraphrasing). For each one found, record { before: the AI DRAFT fragment, after: the FINAL TEXT fragment, reason: one short phrase in Russian }. List at most 5 in unnecessary_rewrites.examples and put the total count found in unnecessary_rewrites.count (count may exceed the number of examples listed). If none are found, count is 0 and examples is [].
+
+## Also return
 - verdict: "ready" or "not_ready"
-- verdict_text: one sentence why
-- red_flags: array of critical issues (max 4)
+- verdict_text: one sentence why (in Russian)
+- red_flags: array of critical issues (max 4, in Russian)
 - notes: array of specific comments (max 5), each with:
   - type: "rm" | "add" | "fix"
   - label: "Убрать" | "Добавить" | "Улучшить"
   - quote: the exact fragment from the text (max 30 words)
   - comment: what to do with it (in Russian)
 - top_edits: array of top 3 things the editor improved vs the draft, each with:
-  - title: short name
+  - title: short name (in Russian)
   - before: fragment from draft
   - after: fragment from final
-  - why: why it's better
+  - why: why it's better (in Russian)
 
-Respond ONLY with valid JSON, no markdown, no preamble.`;
+Respond ONLY with valid JSON matching exactly this shape, no markdown, no preamble:
+{
+  "verdict": "ready" | "not_ready",
+  "verdict_text": string,
+  "human_value_added": {
+    "statistics_added": number,
+    "real_world_examples_added": number,
+    "bitrix24_integrations_added": number,
+    "ai_cliches_removed": number,
+    "filler_sentences_removed": number,
+    "summary": string
+  },
+  "criteria": {
+    "real_world_expertise": { "score": number, "explanation": string, "evidence": string[] },
+    "ai_sterility": { "score": number, "explanation": string, "evidence": string[] },
+    "bitrix24_integration": { "score": number, "explanation": string, "evidence": string[] },
+    "operational_context": { "score": number, "explanation": string, "evidence": string[] },
+    "readability": { "score": number, "explanation": string, "evidence": string[] },
+    "fact_check": { "score": number, "explanation": string, "evidence": string[] },
+    "links_quality": { "score": number, "explanation": string, "evidence": string[] }
+  },
+  "unnecessary_rewrites": {
+    "count": number,
+    "examples": [{ "before": string, "after": string, "reason": string }]
+  },
+  "red_flags": string[],
+  "notes": [{ "type": string, "label": string, "quote": string, "comment": string }],
+  "top_edits": [{ "title": string, "before": string, "after": string, "why": string }]
+}`;
 
 const CRITERIA_KEYS = [
   "real_world_expertise",
@@ -69,17 +126,47 @@ function extractJson(text) {
   return JSON.parse(candidate);
 }
 
+function normalizeCount(n) {
+  return Math.max(0, Math.round(Number(n)) || 0);
+}
+
 function normalize(parsed) {
-  const scores = {};
+  const rawCriteria = parsed.criteria || {};
+  const criteria = {};
   for (const key of CRITERIA_KEYS) {
-    scores[key] = Number(parsed[key]) || 0;
+    const c = rawCriteria[key] || {};
+    criteria[key] = {
+      score: Number(c.score) || 0,
+      explanation: c.explanation || "",
+      evidence: Array.isArray(c.evidence) ? c.evidence.slice(0, 4).filter(Boolean) : [],
+    };
   }
+
+  const hva = parsed.human_value_added || {};
+  const rewrites = parsed.unnecessary_rewrites || {};
+
   return {
-    overall_score: Number(parsed.overall_score) || 0,
-    grade: parsed.grade || "",
     verdict: parsed.verdict === "ready" ? "ready" : "not_ready",
     verdict_text: parsed.verdict_text || "",
-    scores,
+    human_value_added: {
+      statistics_added: normalizeCount(hva.statistics_added),
+      real_world_examples_added: normalizeCount(hva.real_world_examples_added),
+      bitrix24_integrations_added: normalizeCount(hva.bitrix24_integrations_added),
+      ai_cliches_removed: normalizeCount(hva.ai_cliches_removed),
+      filler_sentences_removed: normalizeCount(hva.filler_sentences_removed),
+      summary: hva.summary || "",
+    },
+    criteria,
+    unnecessary_rewrites: {
+      count: normalizeCount(rewrites.count),
+      examples: Array.isArray(rewrites.examples)
+        ? rewrites.examples.slice(0, 5).map((r) => ({
+            before: r.before || "",
+            after: r.after || "",
+            reason: r.reason || "",
+          }))
+        : [],
+    },
     red_flags: Array.isArray(parsed.red_flags) ? parsed.red_flags.slice(0, 4) : [],
     notes: Array.isArray(parsed.notes)
       ? parsed.notes.slice(0, 5).map((n) => ({
@@ -140,7 +227,9 @@ async function callWithRetry(fn) {
 
 export async function analyzeArticle({ draftText, finalText, language }) {
   const model = process.env.VIBE_AI_MODEL || "bitrix/bitrixgpt-5.5";
-  const userMessage = `Target language of the FINAL TEXT: ${language}
+  const languageName = LANGUAGE_NAMES[language] || language;
+  const userMessage = `Target language of the FINAL TEXT: ${languageName} (code: ${language})
+Write human_value_added.summary in ${languageName}.
 
 AI DRAFT:
 """
