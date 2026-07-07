@@ -150,13 +150,17 @@ function CriteriaBreakdown({ criteria, redFlags, t }) {
         const noEvidenceText = key === "ai_sterility" ? t.criteriaEvidence.noAiPatterns : t.criteriaEvidence.noneGeneric;
         return (
           <div key={key} style={{ background: "#fafafa", border: "1px solid #e5e5e5", borderRadius: 10, padding: "12px 14px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontSize: 12, color: "#666", minWidth: 190 }}>{t.criteria[key]}</span>
-              <div style={{ flex: 1, height: 4, background: "#ebebeb", borderRadius: 2, overflow: "hidden" }}>
-                <div style={{ width: `${c.score * 10}%`, height: "100%", background: color, borderRadius: 2 }} />
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 12, color: "#666", flex: "1 1 190px" }}>{t.criteria[key]}</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flex: "1 1 120px" }}>
+                <div style={{ flex: 1, height: 4, background: "#ebebeb", borderRadius: 2, overflow: "hidden" }}>
+                  <div style={{ width: `${c.score * 10}%`, height: "100%", background: color, borderRadius: 2 }} />
+                </div>
+                <span style={{ fontSize: 12, fontWeight: 600, minWidth: 20, textAlign: "right", flexShrink: 0 }}>{c.score}</span>
+                <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, whiteSpace: "nowrap", flexShrink: 0, ...pillStyle[type] }}>
+                  {tag}
+                </span>
               </div>
-              <span style={{ fontSize: 12, fontWeight: 600, minWidth: 30, textAlign: "right" }}>{c.score}</span>
-              <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, ...pillStyle[type] }}>{tag}</span>
             </div>
 
             {c.explanation && (
