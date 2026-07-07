@@ -37,9 +37,17 @@ You will receive two texts:
 1. AI DRAFT — the original AI-generated article
 2. FINAL TEXT — the editor's revised version
 
-## Human Value Added (the primary metric)
+## Overall quality scores (the primary metric)
 
-The main question is NOT "is this text good in isolation" but "how much value did the human editor add on top of the AI draft". Compare FINAL TEXT against AI DRAFT and count, as concrete integers:
+Score each version holistically on a 0-100 scale — how good would this article be if published as-is, considering real-world expertise, factual grounding, natural Bitrix24 integration, readability, and absence of AI clichés:
+- ai_draft_quality — overall quality of the AI DRAFT alone, judged on its own merits (ignore that it's a draft — score it as if it were the final published text)
+- final_article_quality — overall quality of the FINAL TEXT alone, same holistic judgment
+
+These are independent holistic scores, not an average of the per-criterion breakdown below. A final text that meaningfully improved on the draft should score meaningfully higher.
+
+## Human value added detail (supporting metrics, shown below the main score — not the primary metric)
+
+Compare FINAL TEXT against AI DRAFT and count, as concrete integers:
 - statistics_added — new statistics/numbers the editor introduced that were not in the draft
 - real_world_examples_added — new concrete real-world scenarios, case studies, or failure examples the editor introduced
 - bitrix24_integrations_added — new specific, contextual mentions of Bitrix24 the editor introduced (where to click, what it does, what the team gets — not just naming the product)
@@ -86,6 +94,8 @@ Respond ONLY with valid JSON matching exactly this shape, no markdown, no preamb
 {
   "verdict": "ready" | "not_ready",
   "verdict_text": string,
+  "ai_draft_quality": number,
+  "final_article_quality": number,
   "human_value_added": {
     "statistics_added": number,
     "real_world_examples_added": number,
@@ -135,6 +145,10 @@ function normalizeCount(n) {
   return Math.max(0, Math.round(Number(n)) || 0);
 }
 
+function normalizeScore100(n) {
+  return Math.max(0, Math.min(100, Math.round(Number(n)) || 0));
+}
+
 function normalize(parsed) {
   const rawCriteria = parsed.criteria || {};
   const criteria = {};
@@ -153,6 +167,8 @@ function normalize(parsed) {
   return {
     verdict: parsed.verdict === "ready" ? "ready" : "not_ready",
     verdict_text: parsed.verdict_text || "",
+    ai_draft_quality: normalizeScore100(parsed.ai_draft_quality),
+    final_article_quality: normalizeScore100(parsed.final_article_quality),
     human_value_added: {
       statistics_added: normalizeCount(hva.statistics_added),
       real_world_examples_added: normalizeCount(hva.real_world_examples_added),
