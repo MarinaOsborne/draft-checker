@@ -10,6 +10,10 @@ function keyFor(language, filename) {
   return `${language}::${filename}`;
 }
 
+function monthKey(date) {
+  return `monthly::${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
 async function ensureFile() {
   await fs.mkdir(DATA_DIR, { recursive: true });
   try {
@@ -62,4 +66,30 @@ export function resetRuns(language, filename) {
     await fs.writeFile(RUNS_FILE, JSON.stringify(all, null, 2), "utf8");
     return 0;
   });
+}
+
+// Global, cross-user counter for the current calendar month. Keying by
+// year-month means it "resets" automatically on the 1st — no cron needed,
+// a new month is simply a key nothing has written to yet.
+export async function getMonthlyRuns() {
+  const all = await readAll();
+  return all[monthKey(new Date())] || 0;
+}
+
+export function incrementMonthlyRuns() {
+  return withLock(async () => {
+    const all = await readAll();
+    const key = monthKey(new Date());
+    const next = (all[key] || 0) + 1;
+    all[key] = next;
+    await fs.writeFile(RUNS_FILE, JSON.stringify(all, null, 2), "utf8");
+    return next;
+  });
+}
+
+// ISO date (YYYY-MM-DD) of the next reset — the 1st of next month, UTC.
+export function nextMonthlyResetDate() {
+  const now = new Date();
+  const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+  return next.toISOString().slice(0, 10);
 }

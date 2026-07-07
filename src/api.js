@@ -25,6 +25,7 @@ async function request(path, options = {}) {
     const err = new Error(body.error || `Request failed: ${res.status}`);
     err.status = res.status;
     err.code = body.code;
+    err.resetDate = body.resetDate;
     throw err;
   }
   return res.json();
@@ -48,6 +49,10 @@ export async function parseDocx(file) {
 export async function getRunCount(language, filename) {
   const q = new URLSearchParams({ language, filename });
   return request(`/api/runs?${q.toString()}`);
+}
+
+export async function getMonthlyStatus() {
+  return request("/api/runs/monthly");
 }
 
 export async function resetRunCount(language, filename) {

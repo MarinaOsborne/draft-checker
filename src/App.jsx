@@ -7,9 +7,9 @@ import ScoreCard from "./components/ScoreCard.jsx";
 import NotesList from "./components/NotesList.jsx";
 import TopEdits from "./components/TopEdits.jsx";
 import DiffView from "./components/DiffView.jsx";
-import { parseDocx, getRunCount, resetRunCount, analyzeArticle, clearPin } from "./api.js";
-import { LANGS, MAX_RUNS, DARK } from "./constants.js";
-import { getTranslations } from "./i18n.js";
+import { parseDocx, getRunCount, resetRunCount, analyzeArticle, getMonthlyStatus, clearPin } from "./api.js";
+import { LANGS, MAX_RUNS, MAX_MONTHLY_RUNS, DARK } from "./constants.js";
+import { getTranslations, formatDate } from "./i18n.js";
 
 const EMPTY_FILE = { file: null, text: "", wordCount: 0 };
 
@@ -26,9 +26,22 @@ export default function App() {
   const [result, setResult] = useState(null);
   const [showResult, setShowResult] = useState(false);
   const [error, setError] = useState(null);
+  const [monthlyExhausted, setMonthlyExhausted] = useState(false);
+  const [monthlyResetDate, setMonthlyResetDate] = useState(null);
 
   const exhausted = runsCount >= MAX_RUNS;
   const bothReady = Boolean(draft.text) && Boolean(final.text);
+
+  useEffect(() => {
+    if (!authenticated) return;
+    getMonthlyStatus()
+      .then((r) => {
+        setMonthlyExhausted(r.runs >= r.max);
+        setMonthlyResetDate(r.resetDate);
+      })
+      .catch((e) => handleAuthError(e));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authenticated]);
 
   useEffect(() => {
     if (!authenticated || !final.file) {
@@ -73,7 +86,7 @@ export default function App() {
   }
 
   async function handleRun() {
-    if (exhausted || !bothReady || analyzing) return;
+    if (exhausted || monthlyExhausted || !bothReady || analyzing) return;
     setAnalyzing(true);
     setError(null);
     try {
@@ -85,10 +98,14 @@ export default function App() {
       });
       setResult(res.result);
       setRunsCount(res.runsCount);
+      if (res.monthlyRunsCount >= MAX_MONTHLY_RUNS) setMonthlyExhausted(true);
       setShowResult(true);
     } catch (e) {
       if (e.code === "limit_exceeded") {
         setRunsCount(MAX_RUNS);
+      } else if (e.code === "monthly_limit_exceeded") {
+        setMonthlyExhausted(true);
+        setMonthlyResetDate(e.resetDate);
       } else {
         handleAuthError(e);
       }
@@ -128,6 +145,23 @@ export default function App() {
       }}
     >
       <Header activeLang={activeLang} onLangChange={handleLangChange} t={t} />
+
+      {monthlyExhausted && (
+        <div
+          style={{
+            margin: "0 20px 14px",
+            padding: "10px 14px",
+            background: "#fce8e8",
+            border: "1px solid #f09595",
+            borderRadius: 8,
+            fontSize: 12,
+            color: "#a32d2d",
+            fontWeight: 500,
+          }}
+        >
+          {t.monthlyLimit.reached(monthlyResetDate ? formatDate(monthlyResetDate, activeLang) : "…")}
+        </div>
+      )}
 
       <UploadZone
         draft={draft}
@@ -172,27 +206,29 @@ export default function App() {
       <div style={{ padding: "0 20px", marginBottom: 20, display: "flex", alignItems: "center", gap: 12 }}>
         <button
           onClick={handleRun}
-          disabled={exhausted || !bothReady || analyzing}
+          disabled={exhausted || monthlyExhausted || !bothReady || analyzing}
           style={{
-            background: exhausted || !bothReady ? "#ccc" : DARK,
+            background: exhausted || monthlyExhausted || !bothReady ? "#ccc" : DARK,
             color: "#fff",
             border: "none",
             padding: "9px 22px",
             borderRadius: 8,
             fontSize: 13,
             fontWeight: 600,
-            cursor: exhausted || !bothReady || analyzing ? "not-allowed" : "pointer",
-            opacity: exhausted || !bothReady ? 0.7 : 1,
+            cursor: exhausted || monthlyExhausted || !bothReady || analyzing ? "not-allowed" : "pointer",
+            opacity: exhausted || monthlyExhausted || !bothReady ? 0.7 : 1,
             display: "flex",
             alignItems: "center",
             gap: 7,
             transition: "all 0.15s",
           }}
         >
-          ✦ {analyzing ? t.runButton.analyzing : exhausted ? t.runButton.exhausted : t.runButton.cta}
+          ✦ {analyzing ? t.runButton.analyzing : exhausted || monthlyExhausted ? t.runButton.exhausted : t.runButton.cta}
         </button>
-        {!exhausted && bothReady && !analyzing && <span style={{ fontSize: 12, color: "#aaa" }}>{t.runButton.eta}</span>}
-        {exhausted && <span style={{ fontSize: 12, color: "#a32d2d" }}>{t.runButton.contactAdmin}</span>}
+        {!exhausted && !monthlyExhausted && bothReady && !analyzing && (
+          <span style={{ fontSize: 12, color: "#aaa" }}>{t.runButton.eta}</span>
+        )}
+        {exhausted && !monthlyExhausted && <span style={{ fontSize: 12, color: "#a32d2d" }}>{t.runButton.contactAdmin}</span>}
       </div>
 
       {showResult && result && (
@@ -204,7 +240,7 @@ export default function App() {
         </>
       )}
 
-      {!showResult && !exhausted && (
+      {!showResult && !exhausted && !monthlyExhausted && (
         <div style={{ padding: "40px 20px", textAlign: "center", color: "#aaa", fontSize: 13 }}>
           {bothReady ? t.placeholder.ready : t.placeholder.notReady}
         </div>

@@ -46,6 +46,7 @@ const dict = {
     notes: { heading: "Specific notes", label: { rm: "Remove", add: "Add", fix: "Improve" } },
     topEdits: { heading: "Editor's top edits", before: "Before (AI)", after: "After" },
     diff: { heading: "Diff — what changed", added: "added", removed: "removed", unchanged: "unchanged" },
+    monthlyLimit: { reached: (date) => `Monthly limit reached. Resets on ${date}` },
   },
 
   ES: {
@@ -93,6 +94,7 @@ const dict = {
     notes: { heading: "Comentarios específicos", label: { rm: "Quitar", add: "Añadir", fix: "Mejorar" } },
     topEdits: { heading: "Mejores ediciones del editor", before: "Antes (IA)", after: "Después" },
     diff: { heading: "Diff — qué cambió", added: "añadido", removed: "eliminado", unchanged: "sin cambios" },
+    monthlyLimit: { reached: (date) => `Límite mensual alcanzado. Se restablece el ${date}` },
   },
 
   BR: {
@@ -140,6 +142,7 @@ const dict = {
     notes: { heading: "Observações específicas", label: { rm: "Remover", add: "Adicionar", fix: "Melhorar" } },
     topEdits: { heading: "Melhores edições do editor", before: "Antes (IA)", after: "Depois" },
     diff: { heading: "Diff — o que mudou", added: "adicionado", removed: "removido", unchanged: "sem alterações" },
+    monthlyLimit: { reached: (date) => `Limite mensal atingido. Será redefinido em ${date}` },
   },
 
   DE: {
@@ -187,6 +190,7 @@ const dict = {
     notes: { heading: "Konkrete Anmerkungen", label: { rm: "Entfernen", add: "Hinzufügen", fix: "Verbessern" } },
     topEdits: { heading: "Top-Bearbeitungen des Redakteurs", before: "Vorher (KI)", after: "Nachher" },
     diff: { heading: "Diff — was sich geändert hat", added: "hinzugefügt", removed: "entfernt", unchanged: "unverändert" },
+    monthlyLimit: { reached: (date) => `Monatliches Limit erreicht. Wird am ${date} zurückgesetzt` },
   },
 
   FR: {
@@ -234,6 +238,7 @@ const dict = {
     notes: { heading: "Remarques spécifiques", label: { rm: "Supprimer", add: "Ajouter", fix: "Améliorer" } },
     topEdits: { heading: "Meilleures modifications de l'éditeur", before: "Avant (IA)", after: "Après" },
     diff: { heading: "Diff — ce qui a changé", added: "ajouté", removed: "supprimé", unchanged: "inchangé" },
+    monthlyLimit: { reached: (date) => `Limite mensuelle atteinte. Réinitialisation le ${date}` },
   },
 
   TR: {
@@ -281,6 +286,7 @@ const dict = {
     notes: { heading: "Somut notlar", label: { rm: "Kaldır", add: "Ekle", fix: "İyileştir" } },
     topEdits: { heading: "Editörün en iyi düzenlemeleri", before: "Önce (AI)", after: "Sonra" },
     diff: { heading: "Diff — neler değişti", added: "eklendi", removed: "kaldırıldı", unchanged: "değişmedi" },
+    monthlyLimit: { reached: (date) => `Aylık limit doldu. ${date} tarihinde sıfırlanacak` },
   },
 
   PL: {
@@ -328,6 +334,7 @@ const dict = {
     notes: { heading: "Konkretne uwagi", label: { rm: "Usuń", add: "Dodaj", fix: "Popraw" } },
     topEdits: { heading: "Najlepsze poprawki redaktora", before: "Przed (AI)", after: "Po" },
     diff: { heading: "Diff — co się zmieniło", added: "dodano", removed: "usunięto", unchanged: "bez zmian" },
+    monthlyLimit: { reached: (date) => `Osiągnięto miesięczny limit. Zostanie zresetowany ${date}` },
   },
 
   VN: {
@@ -375,8 +382,31 @@ const dict = {
     notes: { heading: "Nhận xét cụ thể", label: { rm: "Xóa", add: "Thêm", fix: "Cải thiện" } },
     topEdits: { heading: "Chỉnh sửa nổi bật của biên tập viên", before: "Trước (AI)", after: "Sau" },
     diff: { heading: "Diff — những gì đã thay đổi", added: "đã thêm", removed: "đã xóa", unchanged: "không đổi" },
+    monthlyLimit: { reached: (date) => `Đã đạt giới hạn hàng tháng. Sẽ được đặt lại vào ${date}` },
   },
 };
+
+const LOCALE_MAP = {
+  EN: "en-US",
+  ES: "es-ES",
+  BR: "pt-BR",
+  DE: "de-DE",
+  FR: "fr-FR",
+  TR: "tr-TR",
+  PL: "pl-PL",
+  VN: "vi-VN",
+};
+
+// isoDate: "YYYY-MM-DD" (UTC, as returned by the server) -> locale-formatted string
+export function formatDate(isoDate, lang) {
+  const date = new Date(`${isoDate}T00:00:00Z`);
+  return new Intl.DateTimeFormat(LOCALE_MAP[lang] || LOCALE_MAP[LANGS[0]], {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(date);
+}
 
 export function getTranslations(lang) {
   return dict[lang] || dict[LANGS[0]];

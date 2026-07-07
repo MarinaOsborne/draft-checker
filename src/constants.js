@@ -1,5 +1,6 @@
 export const LANGS = ["EN", "ES", "BR", "DE", "FR", "TR", "PL", "VN"];
 export const MAX_RUNS = 3;
+export const MAX_MONTHLY_RUNS = 412;
 
 export const BLUE = "#29ABE2";
 export const DARK = "#1F5799";
