@@ -6,7 +6,7 @@ const dict = {
     pin: { placeholder: "PIN code", error: "Incorrect PIN", submit: "Log in", checking: "Checking…" },
     upload: {
       aiDraftTitle: "AI draft",
-      aiDraftSubtitle: "The file the editor received from you",
+      aiDraftSubtitle: "The AI-generated draft you received",
       finalTitle: "Final text",
       finalSubtitle: "The editor's revised version",
       cta: "Upload .docx",
@@ -53,7 +53,7 @@ const dict = {
     pin: { placeholder: "Código PIN", error: "PIN incorrecto", submit: "Entrar", checking: "Comprobando…" },
     upload: {
       aiDraftTitle: "Borrador de IA",
-      aiDraftSubtitle: "El archivo que el editor recibió de ti",
+      aiDraftSubtitle: "El borrador de IA que recibiste",
       finalTitle: "Texto final",
       finalSubtitle: "La versión revisada por el editor",
       cta: "Subir .docx",
@@ -100,7 +100,7 @@ const dict = {
     pin: { placeholder: "Código PIN", error: "PIN incorreto", submit: "Entrar", checking: "Verificando…" },
     upload: {
       aiDraftTitle: "Rascunho de IA",
-      aiDraftSubtitle: "O arquivo que o editor recebeu de você",
+      aiDraftSubtitle: "O rascunho de IA que você recebeu",
       finalTitle: "Texto final",
       finalSubtitle: "A versão revisada pelo editor",
       cta: "Enviar .docx",
@@ -147,7 +147,7 @@ const dict = {
     pin: { placeholder: "PIN-Code", error: "Falscher PIN", submit: "Anmelden", checking: "Wird geprüft…" },
     upload: {
       aiDraftTitle: "KI-Entwurf",
-      aiDraftSubtitle: "Die Datei, die der Redakteur von dir erhalten hat",
+      aiDraftSubtitle: "Der KI-Entwurf, den du erhalten hast",
       finalTitle: "Endtext",
       finalSubtitle: "Die überarbeitete Version des Redakteurs",
       cta: ".docx hochladen",
@@ -194,7 +194,7 @@ const dict = {
     pin: { placeholder: "Code PIN", error: "Code PIN incorrect", submit: "Se connecter", checking: "Vérification…" },
     upload: {
       aiDraftTitle: "Brouillon IA",
-      aiDraftSubtitle: "Le fichier que l'éditeur a reçu de toi",
+      aiDraftSubtitle: "Le brouillon IA que vous avez reçu",
       finalTitle: "Texte final",
       finalSubtitle: "La version révisée par l'éditeur",
       cta: "Importer un .docx",
@@ -241,7 +241,7 @@ const dict = {
     pin: { placeholder: "PIN kodu", error: "Hatalı PIN", submit: "Giriş yap", checking: "Kontrol ediliyor…" },
     upload: {
       aiDraftTitle: "Yapay zeka taslağı",
-      aiDraftSubtitle: "Editörün senden aldığı dosya",
+      aiDraftSubtitle: "Aldığın yapay zeka taslağı",
       finalTitle: "Son metin",
       finalSubtitle: "Editörün düzenlediği sürüm",
       cta: ".docx yükle",
@@ -288,7 +288,7 @@ const dict = {
     pin: { placeholder: "Kod PIN", error: "Nieprawidłowy PIN", submit: "Zaloguj się", checking: "Sprawdzanie…" },
     upload: {
       aiDraftTitle: "Wersja robocza AI",
-      aiDraftSubtitle: "Plik, który redaktor otrzymał od ciebie",
+      aiDraftSubtitle: "Otrzymany szkic AI",
       finalTitle: "Tekst końcowy",
       finalSubtitle: "Wersja poprawiona przez redaktora",
       cta: "Prześlij plik .docx",
@@ -335,7 +335,7 @@ const dict = {
     pin: { placeholder: "Mã PIN", error: "Sai mã PIN", submit: "Đăng nhập", checking: "Đang kiểm tra…" },
     upload: {
       aiDraftTitle: "Bản nháp AI",
-      aiDraftSubtitle: "Tệp mà biên tập viên đã nhận từ bạn",
+      aiDraftSubtitle: "Bản nháp AI bạn đã nhận được",
       finalTitle: "Bản hoàn chỉnh",
       finalSubtitle: "Phiên bản đã được biên tập viên chỉnh sửa",
       cta: "Tải lên .docx",
