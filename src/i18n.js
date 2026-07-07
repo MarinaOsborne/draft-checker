@@ -54,6 +54,9 @@ const dict = {
       parseFailed: "Could not parse the file",
       badRequest: "Missing required fields",
       analyzeFailed: "Could not get a review from AI Router VibeCode",
+      fileTooLarge: "The file is too large (max 15 MB)",
+      uploadFailed: "Could not upload the file",
+      internalError: "Something went wrong on the server. Please try again",
     },
     humanValueAdded: {
       heading: "Human Value Added",
@@ -121,6 +124,9 @@ const dict = {
       parseFailed: "No se pudo analizar el archivo",
       badRequest: "Faltan campos obligatorios",
       analyzeFailed: "No se pudo obtener una evaluación de AI Router VibeCode",
+      fileTooLarge: "El archivo es demasiado grande (máx. 15 MB)",
+      uploadFailed: "No se pudo subir el archivo",
+      internalError: "Algo salió mal en el servidor. Por favor, inténtalo de nuevo",
     },
     humanValueAdded: {
       heading: "Valor humano añadido",
@@ -188,6 +194,9 @@ const dict = {
       parseFailed: "Não foi possível analisar o arquivo",
       badRequest: "Faltam campos obrigatórios",
       analyzeFailed: "Não foi possível obter uma avaliação do AI Router VibeCode",
+      fileTooLarge: "O arquivo é muito grande (máx. 15 MB)",
+      uploadFailed: "Não foi possível enviar o arquivo",
+      internalError: "Algo deu errado no servidor. Tente novamente",
     },
     humanValueAdded: {
       heading: "Valor humano agregado",
@@ -255,6 +264,9 @@ const dict = {
       parseFailed: "Die Datei konnte nicht verarbeitet werden",
       badRequest: "Pflichtfelder fehlen",
       analyzeFailed: "Es konnte keine Bewertung vom AI Router VibeCode abgerufen werden",
+      fileTooLarge: "Die Datei ist zu groß (max. 15 MB)",
+      uploadFailed: "Die Datei konnte nicht hochgeladen werden",
+      internalError: "Auf dem Server ist ein Fehler aufgetreten. Bitte versuche es erneut",
     },
     humanValueAdded: {
       heading: "Menschlicher Mehrwert",
@@ -322,6 +334,9 @@ const dict = {
       parseFailed: "Impossible d'analyser le fichier",
       badRequest: "Champs obligatoires manquants",
       analyzeFailed: "Impossible d'obtenir une évaluation depuis AI Router VibeCode",
+      fileTooLarge: "Le fichier est trop volumineux (max. 15 Mo)",
+      uploadFailed: "Impossible d'importer le fichier",
+      internalError: "Une erreur est survenue sur le serveur. Merci de réessayer",
     },
     humanValueAdded: {
       heading: "Valeur humaine ajoutée",
@@ -389,6 +404,9 @@ const dict = {
       parseFailed: "Dosya işlenemedi",
       badRequest: "Zorunlu alanlar eksik",
       analyzeFailed: "AI Router VibeCode'dan değerlendirme alınamadı",
+      fileTooLarge: "Dosya çok büyük (maksimum 15 MB)",
+      uploadFailed: "Dosya yüklenemedi",
+      internalError: "Sunucuda bir sorun oluştu. Lütfen tekrar deneyin",
     },
     humanValueAdded: {
       heading: "İnsan Katkısı",
@@ -456,6 +474,9 @@ const dict = {
       parseFailed: "Nie udało się przetworzyć pliku",
       badRequest: "Brak wymaganych pól",
       analyzeFailed: "Nie udało się uzyskać oceny z AI Router VibeCode",
+      fileTooLarge: "Plik jest zbyt duży (maks. 15 MB)",
+      uploadFailed: "Nie udało się przesłać pliku",
+      internalError: "Wystąpił błąd serwera. Spróbuj ponownie",
     },
     humanValueAdded: {
       heading: "Wartość dodana przez człowieka",
@@ -523,6 +544,9 @@ const dict = {
       parseFailed: "Không thể xử lý tệp",
       badRequest: "Thiếu thông tin bắt buộc",
       analyzeFailed: "Không thể nhận đánh giá từ AI Router VibeCode",
+      fileTooLarge: "Tệp quá lớn (tối đa 15 MB)",
+      uploadFailed: "Không thể tải lên tệp",
+      internalError: "Đã xảy ra lỗi trên máy chủ. Vui lòng thử lại",
     },
     humanValueAdded: {
       heading: "Giá trị con người đóng góp",

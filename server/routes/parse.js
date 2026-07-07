@@ -26,7 +26,18 @@ function extractLinks(html) {
   return links;
 }
 
-router.post("/parse", requirePin, upload.single("file"), async (req, res) => {
+function handleUpload(req, res, next) {
+  upload.single("file")(req, res, (err) => {
+    if (!err) return next();
+    if (err.code === "LIMIT_FILE_SIZE") {
+      return res.status(413).json({ error: "Файл слишком большой (максимум 15 МБ)", code: "file_too_large" });
+    }
+    console.error("Multer upload failed:", err);
+    res.status(400).json({ error: "Не удалось загрузить файл", code: "upload_failed" });
+  });
+}
+
+router.post("/parse", requirePin, handleUpload, async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: "Файл не передан", code: "no_file" });
   }
@@ -40,6 +51,7 @@ router.post("/parse", requirePin, upload.single("file"), async (req, res) => {
     const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0;
     res.json({ text, wordCount, filename: req.file.originalname, links });
   } catch (e) {
+    console.error("Docx parse failed:", e);
     res.status(500).json({ error: "Не удалось разобрать файл", code: "parse_failed" });
   }
 });

@@ -62,6 +62,9 @@ export default function App() {
     bad_request: "badRequest",
     analyze_failed: "analyzeFailed",
     ai_unavailable: "aiUnavailable",
+    file_too_large: "fileTooLarge",
+    upload_failed: "uploadFailed",
+    internal_error: "internalError",
   };
 
   function handleAuthError(e) {
