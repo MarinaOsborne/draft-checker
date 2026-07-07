@@ -41,4 +41,8 @@ process.on("unhandledRejection", (err) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Article Quality Checker listening on port ${PORT}`);
+  const key = process.env.OPENAI_API_KEY || "";
+  console.log(
+    key ? `OPENAI_API_KEY: set (${key.slice(0, 8)}…, length ${key.length})` : "OPENAI_API_KEY: NOT SET"
+  );
 });
