@@ -1,7 +1,22 @@
-// Вызывает модель напрямую через OpenAI API (не через VibeCode AI Router —
-// см. историю: тот эндпоинт был непроверенным предположением и периодически
-// отдавал 502. OpenAI API — реальный, полностью документированный сервис,
-// поэтому здесь никаких предположений про путь/авторизацию не нужно.
+// Вызывает модель через AI Router платформы VibeCode (vibecode.bitrix24.tech),
+// а не напрямую OpenAI/Anthropic — используется тот же ключ VIBE_KEY, что и
+// для деплоя. Роутер OpenAI-совместим, поэтому берём готовый SDK `openai` и
+// просто указываем ему другой baseURL/ключ.
+//
+// Возврат к этому провайдеру: прямой OpenAI не работает с серверов VibeCode
+// (403 геоблок по IP), см. диагностику через /api/health.openaiTest в
+// истории коммитов перед этим.
+//
+// ⚠️ ПРЕДПОЛОЖЕНИЕ: VIBE_AI_BASE_URL и формат аутентификации ниже не были
+// проверены — у автора не было сетевого доступа к vibecode.bitrx24.tech
+// (заблокировано политикой песочницы). Судя по остальным эндпоинтам платформы
+// (deploy/deploy.sh использует `${API}/infra/...` c заголовком `X-Api-Key`),
+// путь роутера, скорее всего, `${API}/ai`, а сам роутер — OpenAI-совместимый
+// `/chat/completions`. Если запросы будут падать (404/401) — проверь
+// настоящий путь и заголовок авторизации в личном кабинете VibeCode
+// (документация: https://vibecode.bitrix24.tech/v1/me) и поправь
+// VIBE_AI_BASE_URL / заголовок ниже. Используй /api/health.aiTest, чтобы
+// быстро проверить это без доступа к логам платформы.
 
 import OpenAI from "openai";
 
@@ -180,8 +195,14 @@ function normalize(parsed) {
 let client;
 function getClient() {
   if (!client) {
+    const baseURL = process.env.VIBE_AI_BASE_URL || "https://vibecode.bitrix24.tech/v1/ai";
     client = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
+      apiKey: process.env.VIBE_KEY || "vibecode",
+      baseURL,
+      // Шлём ключ и как Bearer (стандарт для OpenAI SDK), и как X-Api-Key
+      // (формат остальных эндпоинтов VibeCode) — на случай, если роутер
+      // ожидает именно его.
+      defaultHeaders: { "X-Api-Key": process.env.VIBE_KEY || "" },
       // Ретраи делаем сами (см. callWithRetry) — со своим количеством попыток
       // и паузой, а не встроенным поведением SDK.
       maxRetries: 0,
@@ -202,7 +223,7 @@ async function callWithRetry(fn) {
     } catch (e) {
       lastError = e;
       if (e?.status !== 502 || attempt === RETRY_ATTEMPTS) throw e;
-      console.warn(`OpenAI вернул 502, попытка ${attempt}/${RETRY_ATTEMPTS}, повтор через ${RETRY_DELAY_MS}мс…`);
+      console.warn(`AI Router вернул 502, попытка ${attempt}/${RETRY_ATTEMPTS}, повтор через ${RETRY_DELAY_MS}мс…`);
       await sleep(RETRY_DELAY_MS);
     }
   }
@@ -215,7 +236,7 @@ function formatLinks(links) {
 }
 
 export async function analyzeArticle({ draftText, finalText, language, draftLinks, finalLinks }) {
-  const model = process.env.OPENAI_MODEL || "gpt-4o";
+  const model = process.env.VIBE_AI_MODEL || "bitrix/bitrixgpt-5.5";
   const languageName = LANGUAGE_NAMES[language] || language;
   const userMessage = `Target language of the FINAL TEXT: ${languageName} (code: ${language})
 Write human_value_added.summary in ${languageName}.
@@ -249,7 +270,7 @@ ${formatLinks(finalLinks)}`;
 
   const text = response.choices?.[0]?.message?.content;
   if (!text) {
-    throw new Error("OpenAI не вернул текстовый ответ");
+    throw new Error("AI Router не вернул текстовый ответ");
   }
   const parsed = extractJson(text);
   return normalize(parsed);
@@ -258,13 +279,13 @@ ${formatLinks(finalLinks)}`;
 const TEST_CONNECTION_TIMEOUT_MS = 8000;
 
 // Диагностический запрос на 1 токен — проверяет, доходят ли запросы с этого
-// сервера до api.openai.com (не переиспользует callWithRetry: тут нужен
+// сервера до AI Router VibeCode (не переиспользует callWithRetry: тут нужен
 // быстрый однозначный ответ, а не 3 попытки по 5с).
 export async function testConnection() {
-  if (!process.env.OPENAI_API_KEY) {
-    return { ok: false, error: "OPENAI_API_KEY not set" };
+  if (!process.env.VIBE_KEY) {
+    return { ok: false, error: "VIBE_KEY not set" };
   }
-  const model = process.env.OPENAI_MODEL || "gpt-4o";
+  const model = process.env.VIBE_AI_MODEL || "bitrix/bitrixgpt-5.5";
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TEST_CONNECTION_TIMEOUT_MS);
   const startedAt = Date.now();

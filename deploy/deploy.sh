@@ -4,7 +4,7 @@
 #
 #   bash deploy/deploy.sh
 #
-# Секреты (VIBE_KEY, OPENAI_API_KEY, ACCESS_PIN) скрипт берёт по приоритету:
+# Секреты (VIBE_KEY, ACCESS_PIN) скрипт берёт по приоритету:
 #   1. уже экспортированные переменные окружения (например, из CI);
 #   2. файл deploy/.env.deploy (в гит не попадает — см. .gitignore); заведи
 #      его один раз командой `cp deploy/.env.deploy.example deploy/.env.deploy`
@@ -16,13 +16,12 @@
 # светятся в выводе `ps aux` как аргументы командной строки.
 #
 # В отличие от чисто статических сайтов, этому приложению нужен постоянно
-# работающий Node/Express-процесс: он держит OPENAI_API_KEY на сервере (ключ
-# никогда не должен попасть в браузер) — используется приложением в рантайме
-# для вызова OpenAI API напрямую (модель gpt-4o по умолчанию, см.
-# server/lib/openaiClient.js) — и ведёт серверный счётчик прогонов. VIBE_KEY —
-# отдельный ключ, нужен только этому скрипту для общения с платформой VibeCode,
-# в рантайме приложения он не используется. Поэтому вместо runtime=static
-# (только nginx) здесь запрашивается runtime=node20.
+# работающий Node/Express-процесс: он держит VIBE_KEY на сервере (ключ
+# никогда не должен попасть в браузер) — тот же ключ, что и для деплоя,
+# используется приложением в рантайме для вызова AI Router VibeCode
+# (модель bitrix/bitrixgpt-5.5, см. server/lib/vibeAiClient.js) — и ведёт
+# серверный счётчик прогонов. Поэтому вместо runtime=static (только nginx)
+# здесь запрашивается runtime=node20.
 #
 # Приложение деплоится как GALAXY-контейнер (общий хост), а не отдельная VM —
 # см. deploy-galaxy.sh в vibecoders-front-ui-gallery/deploy. Три вещи,
@@ -38,6 +37,12 @@
 #      создавала app slot, но реального деплоя не запускала («No source was
 #      deployed — the app slot was created but a deploy never started»),
 #      потому что просто не понимала поле archive.
+#
+# ⚠️ Базовый URL AI Router в server/lib/vibeAiClient.js — по-прежнему
+# непроверенное предположение (см. комментарий там же и deploy/README.md).
+# Если после деплоя `/api/analyze` отдаёт 502 — проверь путь AI Router и
+# формат авторизации в личном кабинете VibeCode, а быстрее — глянь
+# /api/health.aiTest сразу после деплоя.
 
 set -u
 API="https://vibecode.bitrix24.tech/v1"
@@ -63,15 +68,9 @@ if [ -z "${VIBE_KEY:-}" ]; then
   echo "❌ VIBE_KEY не задан."
   exit 1
 fi
-if [ -z "${OPENAI_API_KEY:-}" ]; then
-  read -rsp "OPENAI_API_KEY (sk-...): " OPENAI_API_KEY; echo
-fi
-if [ -z "${OPENAI_API_KEY:-}" ]; then
-  echo "❌ OPENAI_API_KEY не задан."
-  exit 1
-fi
 ACCESS_PIN="${ACCESS_PIN:-2847}"
-OPENAI_MODEL="${OPENAI_MODEL:-gpt-4o}"
+VIBE_AI_MODEL="${VIBE_AI_MODEL:-bitrix/bitrixgpt-5.5}"
+VIBE_AI_BASE_URL="${VIBE_AI_BASE_URL:-https://vibecode.bitrix24.tech/v1/ai}"
 
 api()   { curl -s -H "X-Api-Key: $VIBE_KEY" "$@"; }
 # вытащить строковое поле из JSON-ответа (чтобы не зависеть от jq)
@@ -97,8 +96,9 @@ cp "$ROOT/package.json" "$WORK/stage/"
 # так деплой не зависит от того, поддерживает ли VibeCode свой механизм env-переменных.
 cat > "$WORK/stage/.env" <<EOF
 ACCESS_PIN=$ACCESS_PIN
-OPENAI_API_KEY=$OPENAI_API_KEY
-OPENAI_MODEL=$OPENAI_MODEL
+VIBE_KEY=$VIBE_KEY
+VIBE_AI_MODEL=$VIBE_AI_MODEL
+VIBE_AI_BASE_URL=$VIBE_AI_BASE_URL
 EOF
 ( cd "$WORK/stage" && npm ci --omit=dev --ignore-scripts >/dev/null ) || { echo "❌ npm ci упал"; exit 1; }
 tar -czf "$WORK/app.tgz" -C "$WORK/stage" .

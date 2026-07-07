@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { requirePin } from "../middleware/requirePin.js";
 import { getRuns, incrementRuns, getMonthlyRuns, incrementMonthlyRuns, nextMonthlyResetDate } from "../lib/store.js";
-import { analyzeArticle } from "../lib/openaiClient.js";
+import { analyzeArticle } from "../lib/vibeAiClient.js";
 import { MAX_RUNS, MAX_MONTHLY_RUNS } from "../lib/constants.js";
 
 const router = Router();
@@ -44,12 +44,12 @@ router.post("/analyze", requirePin, async (req, res) => {
     const monthlyRunsCount = await incrementMonthlyRuns();
     res.json({ result, runsCount, monthlyRunsCount });
   } catch (e) {
-    console.error("OpenAI analyze failed:", e.status || "", e.message, e.error || "");
+    console.error("AI Router analyze failed:", e.status || "", e.message, e.error || "");
     // Прогон НЕ списывается — increment выше выполняется только при успехе.
     if (e.status === 502) {
-      res.status(502).json({ error: "OpenAI is not responding", code: "ai_unavailable" });
+      res.status(502).json({ error: "AI Router is not responding", code: "ai_unavailable" });
     } else {
-      res.status(502).json({ error: "Не удалось получить оценку от OpenAI", code: "analyze_failed" });
+      res.status(502).json({ error: "Не удалось получить оценку от AI Router VibeCode", code: "analyze_failed" });
     }
   }
 });
