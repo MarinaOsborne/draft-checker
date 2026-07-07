@@ -1,17 +1,7 @@
-// Вызывает модель через AI Router платформы VibeCode (vibecode.bitrix24.tech),
-// а не напрямую OpenAI/Anthropic — используется тот же ключ VIBE_KEY, что и
-// для деплоя. Роутер OpenAI-совместим, поэтому берём готовый SDK `openai` и
-// просто указываем ему другой baseURL/ключ.
-//
-// ⚠️ ПРЕДПОЛОЖЕНИЕ: VIBE_AI_BASE_URL и формат аутентификации ниже не были
-// проверены — у автора не было сетевого доступа к vibecode.bitrix24.tech
-// (заблокировано политикой песочницы). Судя по остальным эндпоинтам платформы
-// (deploy/deploy.sh использует `${API}/infra/...` c заголовком `X-Api-Key`),
-// путь роутера, скорее всего, `${API}/ai`, а сам роутер — OpenAI-совместимый
-// `/chat/completions`. Если запросы будут падать (404/401) — проверь
-// настоящий путь и заголовок авторизации в личном кабинете VibeCode
-// (документация: https://vibecode.bitrix24.tech/v1/me) и поправь
-// VIBE_AI_BASE_URL / заголовок ниже.
+// Вызывает модель напрямую через OpenAI API (не через VibeCode AI Router —
+// см. историю: тот эндпоинт был непроверенным предположением и периодически
+// отдавал 502. OpenAI API — реальный, полностью документированный сервис,
+// поэтому здесь никаких предположений про путь/авторизацию не нужно.
 
 import OpenAI from "openai";
 
@@ -190,14 +180,8 @@ function normalize(parsed) {
 let client;
 function getClient() {
   if (!client) {
-    const baseURL = process.env.VIBE_AI_BASE_URL || "https://vibecode.bitrix24.tech/v1/ai";
     client = new OpenAI({
-      apiKey: process.env.VIBE_KEY || "vibecode",
-      baseURL,
-      // Шлём ключ и как Bearer (стандарт для OpenAI SDK), и как X-Api-Key
-      // (формат остальных эндпоинтов VibeCode) — на случай, если роутер
-      // ожидает именно его.
-      defaultHeaders: { "X-Api-Key": process.env.VIBE_KEY || "" },
+      apiKey: process.env.OPENAI_API_KEY,
       // Ретраи делаем сами (см. callWithRetry) — со своим количеством попыток
       // и паузой, а не встроенным поведением SDK.
       maxRetries: 0,
@@ -218,7 +202,7 @@ async function callWithRetry(fn) {
     } catch (e) {
       lastError = e;
       if (e?.status !== 502 || attempt === RETRY_ATTEMPTS) throw e;
-      console.warn(`AI Router вернул 502, попытка ${attempt}/${RETRY_ATTEMPTS}, повтор через ${RETRY_DELAY_MS}мс…`);
+      console.warn(`OpenAI вернул 502, попытка ${attempt}/${RETRY_ATTEMPTS}, повтор через ${RETRY_DELAY_MS}мс…`);
       await sleep(RETRY_DELAY_MS);
     }
   }
@@ -231,7 +215,7 @@ function formatLinks(links) {
 }
 
 export async function analyzeArticle({ draftText, finalText, language, draftLinks, finalLinks }) {
-  const model = process.env.VIBE_AI_MODEL || "bitrix/bitrixgpt-5.5";
+  const model = process.env.OPENAI_MODEL || "gpt-4o";
   const languageName = LANGUAGE_NAMES[language] || language;
   const userMessage = `Target language of the FINAL TEXT: ${languageName} (code: ${language})
 Write human_value_added.summary in ${languageName}.
@@ -265,7 +249,7 @@ ${formatLinks(finalLinks)}`;
 
   const text = response.choices?.[0]?.message?.content;
   if (!text) {
-    throw new Error("AI Router не вернул текстовый ответ");
+    throw new Error("OpenAI не вернул текстовый ответ");
   }
   const parsed = extractJson(text);
   return normalize(parsed);
