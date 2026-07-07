@@ -56,7 +56,7 @@ Evaluate the FINAL TEXT against these 7 criteria. For EACH one return an object 
 4. operational_context — does it answer: who does this, how often, how long does it take?
 5. readability — is the flow natural? No awkward transitions, no filler paragraphs.
 6. fact_check — are all statistics and claims either sourced or removed?
-7. links_quality — are external links present and relevant?
+7. links_quality — judge this from the explicit "FINAL TEXT LINKS" list provided below (extracted from the actual hyperlinks in the document), not by scanning the prose for URLs — plain text never contains the underlying href. Are there any links at all, and are they relevant to the surrounding content? If FINAL TEXT LINKS is empty, that itself means no links are present.
 
 ## Unnecessary rewrites
 
@@ -225,7 +225,12 @@ async function callWithRetry(fn) {
   throw lastError;
 }
 
-export async function analyzeArticle({ draftText, finalText, language }) {
+function formatLinks(links) {
+  if (!links || links.length === 0) return "(none)";
+  return links.map((l) => `- ${l.url}${l.text ? ` (anchor text: "${l.text}")` : ""}`).join("\n");
+}
+
+export async function analyzeArticle({ draftText, finalText, language, draftLinks, finalLinks }) {
   const model = process.env.VIBE_AI_MODEL || "bitrix/bitrixgpt-5.5";
   const languageName = LANGUAGE_NAMES[language] || language;
   const userMessage = `Target language of the FINAL TEXT: ${languageName} (code: ${language})
@@ -236,10 +241,16 @@ AI DRAFT:
 ${draftText}
 """
 
+AI DRAFT LINKS (hyperlinks extracted from the .docx, not visible in the text above):
+${formatLinks(draftLinks)}
+
 FINAL TEXT:
 """
 ${finalText}
-"""`;
+"""
+
+FINAL TEXT LINKS (hyperlinks extracted from the .docx, not visible in the text above):
+${formatLinks(finalLinks)}`;
 
   const response = await callWithRetry(() =>
     getClient().chat.completions.create({

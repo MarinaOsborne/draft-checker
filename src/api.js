@@ -63,10 +63,10 @@ export async function resetRunCount(language, filename) {
   });
 }
 
-export async function analyzeArticle({ draftText, finalText, language, finalFilename }) {
+export async function analyzeArticle({ draftText, finalText, language, finalFilename, draftLinks, finalLinks }) {
   return request("/api/analyze", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ draftText, finalText, language, finalFilename }),
+    body: JSON.stringify({ draftText, finalText, language, finalFilename, draftLinks, finalLinks }),
   });
 }

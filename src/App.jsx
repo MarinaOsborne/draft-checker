@@ -12,7 +12,7 @@ import { parseDocx, getRunCount, resetRunCount, analyzeArticle, getMonthlyStatus
 import { LANGS, MAX_RUNS, MAX_MONTHLY_RUNS, DARK } from "./constants.js";
 import { getTranslations, formatDate } from "./i18n.js";
 
-const EMPTY_FILE = { file: null, text: "", wordCount: 0 };
+const EMPTY_FILE = { file: null, text: "", wordCount: 0, links: [] };
 
 export default function App() {
   const [authenticated, setAuthenticated] = useState(() => Boolean(sessionStorage.getItem("aqc_pin")));
@@ -80,7 +80,7 @@ export default function App() {
     setUploading(slot);
     try {
       const parsed = await parseDocx(file);
-      const entry = { file, text: parsed.text, wordCount: parsed.wordCount };
+      const entry = { file, text: parsed.text, wordCount: parsed.wordCount, links: parsed.links || [] };
       if (slot === "draft") setDraft(entry);
       else setFinal(entry);
     } catch (e) {
@@ -106,6 +106,8 @@ export default function App() {
         finalText: final.text,
         language: activeLang,
         finalFilename: final.file.name,
+        draftLinks: draft.links,
+        finalLinks: final.links,
       });
       setResult(res.result);
       setRunsCount(res.runsCount);

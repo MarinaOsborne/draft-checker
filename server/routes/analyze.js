@@ -7,7 +7,7 @@ import { MAX_RUNS, MAX_MONTHLY_RUNS } from "../lib/constants.js";
 const router = Router();
 
 router.post("/analyze", requirePin, async (req, res) => {
-  const { draftText, finalText, language, finalFilename } = req.body || {};
+  const { draftText, finalText, language, finalFilename, draftLinks, finalLinks } = req.body || {};
   if (!draftText || !finalText || !language || !finalFilename) {
     return res.status(400).json({
       error: "draftText, finalText, language и finalFilename обязательны",
@@ -33,7 +33,13 @@ router.post("/analyze", requirePin, async (req, res) => {
   }
 
   try {
-    const result = await analyzeArticle({ draftText, finalText, language });
+    const result = await analyzeArticle({
+      draftText,
+      finalText,
+      language,
+      draftLinks: Array.isArray(draftLinks) ? draftLinks : [],
+      finalLinks: Array.isArray(finalLinks) ? finalLinks : [],
+    });
     const runsCount = await incrementRuns(language, finalFilename);
     const monthlyRunsCount = await incrementMonthlyRuns();
     res.json({ result, runsCount, monthlyRunsCount });
