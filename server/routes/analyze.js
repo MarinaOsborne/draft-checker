@@ -18,7 +18,7 @@ router.post("/analyze", requirePin, async (req, res) => {
   const currentRuns = await getRuns(language, finalFilename);
   if (currentRuns >= MAX_RUNS) {
     return res.status(429).json({
-      error: "Лимит прогонов исчерпан. Обратитесь к Marina для сброса.",
+      error: "Лимит прогонов исчерпан. Обратитесь к менеджеру для сброса.",
       code: "limit_exceeded",
     });
   }
