@@ -47,6 +47,7 @@ const dict = {
     topEdits: { heading: "Editor's top edits", before: "Before (AI)", after: "After" },
     diff: { heading: "Diff — what changed", added: "added", removed: "removed", unchanged: "unchanged" },
     monthlyLimit: { reached: (date) => `Monthly limit reached. Resets on ${date}` },
+    errors: { aiUnavailable: "The server is not responding. Please try again in a few minutes" },
   },
 
   ES: {
@@ -95,6 +96,7 @@ const dict = {
     topEdits: { heading: "Mejores ediciones del editor", before: "Antes (IA)", after: "Después" },
     diff: { heading: "Diff — qué cambió", added: "añadido", removed: "eliminado", unchanged: "sin cambios" },
     monthlyLimit: { reached: (date) => `Límite mensual alcanzado. Se restablece el ${date}` },
+    errors: { aiUnavailable: "El servidor no responde. Por favor, inténtalo de nuevo en unos minutos" },
   },
 
   BR: {
@@ -143,6 +145,7 @@ const dict = {
     topEdits: { heading: "Melhores edições do editor", before: "Antes (IA)", after: "Depois" },
     diff: { heading: "Diff — o que mudou", added: "adicionado", removed: "removido", unchanged: "sem alterações" },
     monthlyLimit: { reached: (date) => `Limite mensal atingido. Será redefinido em ${date}` },
+    errors: { aiUnavailable: "O servidor não está respondendo. Tente novamente em alguns minutos" },
   },
 
   DE: {
@@ -191,6 +194,7 @@ const dict = {
     topEdits: { heading: "Top-Bearbeitungen des Redakteurs", before: "Vorher (KI)", after: "Nachher" },
     diff: { heading: "Diff — was sich geändert hat", added: "hinzugefügt", removed: "entfernt", unchanged: "unverändert" },
     monthlyLimit: { reached: (date) => `Monatliches Limit erreicht. Wird am ${date} zurückgesetzt` },
+    errors: { aiUnavailable: "Der Server antwortet nicht. Bitte versuche es in ein paar Minuten erneut" },
   },
 
   FR: {
@@ -239,6 +243,7 @@ const dict = {
     topEdits: { heading: "Meilleures modifications de l'éditeur", before: "Avant (IA)", after: "Après" },
     diff: { heading: "Diff — ce qui a changé", added: "ajouté", removed: "supprimé", unchanged: "inchangé" },
     monthlyLimit: { reached: (date) => `Limite mensuelle atteinte. Réinitialisation le ${date}` },
+    errors: { aiUnavailable: "Le serveur ne répond pas. Merci de réessayer dans quelques minutes" },
   },
 
   TR: {
@@ -287,6 +292,7 @@ const dict = {
     topEdits: { heading: "Editörün en iyi düzenlemeleri", before: "Önce (AI)", after: "Sonra" },
     diff: { heading: "Diff — neler değişti", added: "eklendi", removed: "kaldırıldı", unchanged: "değişmedi" },
     monthlyLimit: { reached: (date) => `Aylık limit doldu. ${date} tarihinde sıfırlanacak` },
+    errors: { aiUnavailable: "Sunucu yanıt vermiyor. Lütfen birkaç dakika sonra tekrar deneyin" },
   },
 
   PL: {
@@ -335,6 +341,7 @@ const dict = {
     topEdits: { heading: "Najlepsze poprawki redaktora", before: "Przed (AI)", after: "Po" },
     diff: { heading: "Diff — co się zmieniło", added: "dodano", removed: "usunięto", unchanged: "bez zmian" },
     monthlyLimit: { reached: (date) => `Osiągnięto miesięczny limit. Zostanie zresetowany ${date}` },
+    errors: { aiUnavailable: "Serwer nie odpowiada. Spróbuj ponownie za kilka minut" },
   },
 
   VN: {
@@ -383,6 +390,7 @@ const dict = {
     topEdits: { heading: "Chỉnh sửa nổi bật của biên tập viên", before: "Trước (AI)", after: "Sau" },
     diff: { heading: "Diff — những gì đã thay đổi", added: "đã thêm", removed: "đã xóa", unchanged: "không đổi" },
     monthlyLimit: { reached: (date) => `Đã đạt giới hạn hàng tháng. Sẽ được đặt lại vào ${date}` },
+    errors: { aiUnavailable: "Máy chủ không phản hồi. Vui lòng thử lại sau vài phút" },
   },
 };
 

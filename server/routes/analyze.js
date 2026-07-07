@@ -39,7 +39,12 @@ router.post("/analyze", requirePin, async (req, res) => {
     res.json({ result, runsCount, monthlyRunsCount });
   } catch (e) {
     console.error("AI Router analyze failed:", e.status || "", e.message, e.error || "");
-    res.status(502).json({ error: "Не удалось получить оценку от AI Router VibeCode", code: "analyze_failed" });
+    // Прогон НЕ списывается — increment выше выполняется только при успехе.
+    if (e.status === 502) {
+      res.status(502).json({ error: "AI Router is not responding", code: "ai_unavailable" });
+    } else {
+      res.status(502).json({ error: "Не удалось получить оценку от AI Router VibeCode", code: "analyze_failed" });
+    }
   }
 });
 

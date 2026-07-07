@@ -111,9 +111,31 @@ function getClient() {
       // (формат остальных эндпоинтов VibeCode) — на случай, если роутер
       // ожидает именно его.
       defaultHeaders: { "X-Api-Key": process.env.VIBE_KEY || "" },
+      // Ретраи делаем сами (см. callWithRetry) — со своим количеством попыток
+      // и паузой, а не встроенным поведением SDK.
+      maxRetries: 0,
     });
   }
   return client;
+}
+
+const RETRY_ATTEMPTS = 3;
+const RETRY_DELAY_MS = 5000;
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function callWithRetry(fn) {
+  let lastError;
+  for (let attempt = 1; attempt <= RETRY_ATTEMPTS; attempt++) {
+    try {
+      return await fn();
+    } catch (e) {
+      lastError = e;
+      if (e?.status !== 502 || attempt === RETRY_ATTEMPTS) throw e;
+      console.warn(`AI Router вернул 502, попытка ${attempt}/${RETRY_ATTEMPTS}, повтор через ${RETRY_DELAY_MS}мс…`);
+      await sleep(RETRY_DELAY_MS);
+    }
+  }
+  throw lastError;
 }
 
 export async function analyzeArticle({ draftText, finalText, language }) {
@@ -130,14 +152,16 @@ FINAL TEXT:
 ${finalText}
 """`;
 
-  const response = await getClient().chat.completions.create({
-    model,
-    response_format: { type: "json_object" },
-    messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: userMessage },
-    ],
-  });
+  const response = await callWithRetry(() =>
+    getClient().chat.completions.create({
+      model,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: userMessage },
+      ],
+    })
+  );
 
   const text = response.choices?.[0]?.message?.content;
   if (!text) {

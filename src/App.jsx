@@ -106,6 +106,8 @@ export default function App() {
       } else if (e.code === "monthly_limit_exceeded") {
         setMonthlyExhausted(true);
         setMonthlyResetDate(e.resetDate);
+      } else if (e.code === "ai_unavailable") {
+        setError(t.errors.aiUnavailable);
       } else {
         handleAuthError(e);
       }
