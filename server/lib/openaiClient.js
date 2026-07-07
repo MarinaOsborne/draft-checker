@@ -254,3 +254,35 @@ ${formatLinks(finalLinks)}`;
   const parsed = extractJson(text);
   return normalize(parsed);
 }
+
+const TEST_CONNECTION_TIMEOUT_MS = 8000;
+
+// Диагностический запрос на 1 токен — проверяет, доходят ли запросы с этого
+// сервера до api.openai.com (не переиспользует callWithRetry: тут нужен
+// быстрый однозначный ответ, а не 3 попытки по 5с).
+export async function testConnection() {
+  if (!process.env.OPENAI_API_KEY) {
+    return { ok: false, error: "OPENAI_API_KEY not set" };
+  }
+  const model = process.env.OPENAI_MODEL || "gpt-4o";
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), TEST_CONNECTION_TIMEOUT_MS);
+  const startedAt = Date.now();
+  try {
+    const response = await getClient().chat.completions.create(
+      { model, max_tokens: 1, messages: [{ role: "user", content: "hi" }] },
+      { signal: controller.signal }
+    );
+    return { ok: true, model, ms: Date.now() - startedAt, id: response.id };
+  } catch (e) {
+    return {
+      ok: false,
+      model,
+      ms: Date.now() - startedAt,
+      status: e.status || null,
+      error: e.message || String(e),
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
