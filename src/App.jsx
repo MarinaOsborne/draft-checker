@@ -54,13 +54,23 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authenticated, activeLang, final.file]);
 
+  const ERROR_CODE_KEYS = {
+    no_file: "noFile",
+    bad_format: "badFormat",
+    parse_failed: "parseFailed",
+    bad_request: "badRequest",
+    analyze_failed: "analyzeFailed",
+    ai_unavailable: "aiUnavailable",
+  };
+
   function handleAuthError(e) {
     if (e.status === 401) {
       clearPin();
       setAuthenticated(false);
-    } else {
-      setError(e.message);
+      return;
     }
+    const key = ERROR_CODE_KEYS[e.code];
+    setError(key ? t.errors[key] : e.message);
   }
 
   async function handleFileSelect(slot, file) {
@@ -106,8 +116,6 @@ export default function App() {
       } else if (e.code === "monthly_limit_exceeded") {
         setMonthlyExhausted(true);
         setMonthlyResetDate(e.resetDate);
-      } else if (e.code === "ai_unavailable") {
-        setError(t.errors.aiUnavailable);
       } else {
         handleAuthError(e);
       }
