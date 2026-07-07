@@ -32,6 +32,7 @@ export default function App() {
 
   const exhausted = runsCount >= MAX_RUNS;
   const bothReady = Boolean(draft.text) && Boolean(final.text);
+  const isAdmin = new URLSearchParams(window.location.search).get("admin") === "true";
 
   useEffect(() => {
     if (!authenticated) return;
@@ -215,6 +216,7 @@ export default function App() {
           runs={runsCount}
           onReset={handleReset}
           resetting={resetting}
+          isAdmin={isAdmin}
           t={t}
         />
       </div>

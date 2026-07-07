@@ -1,6 +1,6 @@
 import { MAX_RUNS, DARK } from "../constants.js";
 
-export default function RunCounter({ filename, runs, onReset, resetting, t }) {
+export default function RunCounter({ filename, runs, onReset, resetting, isAdmin, t }) {
   const remaining = MAX_RUNS - runs;
   const exhausted = remaining <= 0;
   const bg = exhausted ? "#fce8e8" : remaining === 1 ? "#fff8e6" : "#e8f4fc";
@@ -38,7 +38,7 @@ export default function RunCounter({ filename, runs, onReset, resetting, t }) {
         {exhausted ? t.runCounter.exhausted : t.runCounter.remaining(remaining, MAX_RUNS)}
       </span>
       {filename && <span style={{ color: "#888", fontSize: 11 }}>· {filename}</span>}
-      {exhausted && (
+      {exhausted && isAdmin && (
         <button
           onClick={onReset}
           disabled={resetting}
