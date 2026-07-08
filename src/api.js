@@ -24,7 +24,13 @@ async function request(path, options = {}) {
     const body = await res.json().catch(() => ({}));
     const err = new Error(body.error || `Request failed: ${res.status}`);
     err.status = res.status;
-    err.code = body.code;
+    // Гейтвей платформы VibeCode может оборвать запрос по тайм-ауту и
+    // вернуть свой собственный 502/503 без JSON-тела в нашем формате (наше
+    // приложение само 503 никогда не отдаёт) — в этом случае body.code
+    // пустой, и раньше пользователь видел сырое "Request failed: 503"
+    // вместо перевода. Подставляем общий код только когда наш сервер сам
+    // не прислал более конкретный (например ai_unavailable/analyze_failed).
+    err.code = body.code || (res.status === 502 || res.status === 503 ? "server_unavailable" : undefined);
     err.resetDate = body.resetDate;
     throw err;
   }

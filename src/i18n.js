@@ -49,6 +49,7 @@ const dict = {
     monthlyLimit: { reached: (date) => `Monthly limit reached. Resets on ${date}` },
     errors: {
       aiUnavailable: "The server is not responding. Please try again in a few minutes",
+      serverUnavailable: "Server is temporarily unavailable. Please try again shortly",
       noFile: "No file was provided",
       badFormat: "Only .docx files are supported",
       parseFailed: "Could not parse the file",
@@ -132,6 +133,7 @@ const dict = {
     monthlyLimit: { reached: (date) => `Límite mensual alcanzado. Se restablece el ${date}` },
     errors: {
       aiUnavailable: "El servidor no responde. Por favor, inténtalo de nuevo en unos minutos",
+      serverUnavailable: "El servidor no está disponible temporalmente. Inténtalo de nuevo en breve",
       noFile: "No se proporcionó ningún archivo",
       badFormat: "Solo se admiten archivos .docx",
       parseFailed: "No se pudo analizar el archivo",
@@ -215,6 +217,7 @@ const dict = {
     monthlyLimit: { reached: (date) => `Limite mensal atingido. Será redefinido em ${date}` },
     errors: {
       aiUnavailable: "O servidor não está respondendo. Tente novamente em alguns minutos",
+      serverUnavailable: "O servidor está temporariamente indisponível. Tente novamente em breve",
       noFile: "Nenhum arquivo foi enviado",
       badFormat: "Apenas arquivos .docx são compatíveis",
       parseFailed: "Não foi possível analisar o arquivo",
@@ -298,6 +301,7 @@ const dict = {
     monthlyLimit: { reached: (date) => `Monatliches Limit erreicht. Wird am ${date} zurückgesetzt` },
     errors: {
       aiUnavailable: "Der Server antwortet nicht. Bitte versuche es in ein paar Minuten erneut",
+      serverUnavailable: "Der Server ist vorübergehend nicht verfügbar. Bitte versuche es in Kürze erneut",
       noFile: "Es wurde keine Datei übermittelt",
       badFormat: "Nur .docx-Dateien werden unterstützt",
       parseFailed: "Die Datei konnte nicht verarbeitet werden",
@@ -381,6 +385,7 @@ const dict = {
     monthlyLimit: { reached: (date) => `Limite mensuelle atteinte. Réinitialisation le ${date}` },
     errors: {
       aiUnavailable: "Le serveur ne répond pas. Merci de réessayer dans quelques minutes",
+      serverUnavailable: "Le serveur est temporairement indisponible. Merci de réessayer sous peu",
       noFile: "Aucun fichier n'a été fourni",
       badFormat: "Seuls les fichiers .docx sont pris en charge",
       parseFailed: "Impossible d'analyser le fichier",
@@ -464,6 +469,7 @@ const dict = {
     monthlyLimit: { reached: (date) => `Aylık limit doldu. ${date} tarihinde sıfırlanacak` },
     errors: {
       aiUnavailable: "Sunucu yanıt vermiyor. Lütfen birkaç dakika sonra tekrar deneyin",
+      serverUnavailable: "Sunucu geçici olarak kullanılamıyor. Lütfen kısa süre sonra tekrar deneyin",
       noFile: "Dosya gönderilmedi",
       badFormat: "Yalnızca .docx dosyaları desteklenir",
       parseFailed: "Dosya işlenemedi",
@@ -547,6 +553,7 @@ const dict = {
     monthlyLimit: { reached: (date) => `Osiągnięto miesięczny limit. Zostanie zresetowany ${date}` },
     errors: {
       aiUnavailable: "Serwer nie odpowiada. Spróbuj ponownie za kilka minut",
+      serverUnavailable: "Serwer jest tymczasowo niedostępny. Spróbuj ponownie za chwilę",
       noFile: "Nie przesłano pliku",
       badFormat: "Obsługiwane są tylko pliki .docx",
       parseFailed: "Nie udało się przetworzyć pliku",
@@ -630,6 +637,7 @@ const dict = {
     monthlyLimit: { reached: (date) => `Đã đạt giới hạn hàng tháng. Sẽ được đặt lại vào ${date}` },
     errors: {
       aiUnavailable: "Máy chủ không phản hồi. Vui lòng thử lại sau vài phút",
+      serverUnavailable: "Máy chủ tạm thời không khả dụng. Vui lòng thử lại sau ít phút",
       noFile: "Chưa có tệp nào được gửi",
       badFormat: "Chỉ hỗ trợ tệp .docx",
       parseFailed: "Không thể xử lý tệp",
