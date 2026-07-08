@@ -32,6 +32,22 @@ router.post("/analyze", requirePin, async (req, res) => {
     });
   }
 
+  // Платформа (гейтвей VibeCode) может оборвать соединение с браузером по
+  // тайм-ауту раньше, чем этот запрос успеет завершиться (особенно с учётом
+  // ретраев ниже) — пользователь увидит 503, а Node-процесс тем временем
+  // доработает и получит успешный ответ от AI Router. Раньше в этот момент
+  // прогон всё равно списывался, хотя клиент уже не получил результат.
+  // Флаг ниже отслеживает обрыв именно СЕТЕВОГО соединения (res.on("close")
+  // срабатывает, когда сокет закрылся раньше, чем res.end()/res.json()
+  // успел записать ответ) — и мы пропускаем increment, если клиент уже
+  // отключился. req.on("close") здесь НЕ работает так же надёжно — было
+  // проверено на практике (тестовый запрос с обрывом соединения всё равно
+  // списывал прогон, пока не заменили на res.on("close")).
+  let clientDisconnected = false;
+  res.on("close", () => {
+    if (!res.writableEnded) clientDisconnected = true;
+  });
+
   try {
     const result = await analyzeArticle({
       draftText,
@@ -40,6 +56,10 @@ router.post("/analyze", requirePin, async (req, res) => {
       draftLinks: Array.isArray(draftLinks) ? draftLinks : [],
       finalLinks: Array.isArray(finalLinks) ? finalLinks : [],
     });
+    if (clientDisconnected) {
+      console.warn("Клиент отключился до получения ответа — прогон не списан.");
+      return;
+    }
     const runsCount = await incrementRuns(language, finalFilename);
     const monthlyRunsCount = await incrementMonthlyRuns();
     res.json({ result, runsCount, monthlyRunsCount });

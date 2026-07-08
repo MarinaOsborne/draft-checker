@@ -261,6 +261,14 @@ function normalize(parsed) {
   };
 }
 
+// SDK по умолчанию ждёт ответа до 10 минут — с учётом наших собственных
+// ретраев (см. callWithRetry) это могло растягивать один /api/analyze на
+// десятки минут, что почти гарантированно упирается в тайм-аут гейтвея
+// платформы (гейтвей рвёт соединение с браузером и отдаёт 503, а сервер
+// внутри тем временем доводит попытку до конца) — см. также проверку
+// clientDisconnected в server/routes/analyze.js.
+const REQUEST_TIMEOUT_MS = 45000;
+
 let client;
 function getClient() {
   if (!client) {
@@ -272,6 +280,7 @@ function getClient() {
       // (формат остальных эндпоинтов VibeCode) — на случай, если роутер
       // ожидает именно его.
       defaultHeaders: { "X-Api-Key": process.env.VIBE_KEY || "" },
+      timeout: REQUEST_TIMEOUT_MS,
       // Ретраи делаем сами (см. callWithRetry) — со своим количеством попыток
       // и паузой, а не встроенным поведением SDK.
       maxRetries: 0,
