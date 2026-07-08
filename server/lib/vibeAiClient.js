@@ -71,6 +71,17 @@ Evaluate the FINAL TEXT against these 7 criteria. For EACH one return an object 
 6. fact_check — are all statistics and claims either sourced or removed?
 7. links_quality — judge this from the explicit "FINAL TEXT LINKS" list provided below (extracted from the actual hyperlinks in the document), not by scanning the prose for URLs — plain text never contains the underlying href. Are there any links at all, and are they relevant to the surrounding content? If FINAL TEXT LINKS is empty, that itself means no links are present.
 
+## AI Search Readiness (secondary block — evaluates FINAL TEXT only)
+
+Score the FINAL TEXT on how ready it is to be surfaced or quoted by AI search engines and AI assistants. Score each of these 5 criteria 0-10:
+1. answer_first_clarity — is the main answer/point given within the first 2-5 paragraphs, making it immediately clear who this is for, when to use it, and why?
+2. structure_and_formatting — are headings clear and descriptive? Are there lists, tables, or step-by-step sections where the content calls for them?
+3. definitions_and_terminology — are key terms defined at their first mention, rather than assumed as prior knowledge?
+4. extractability_and_quotability — are there self-contained passages that could be quoted verbatim, without further editing, as a direct answer?
+5. specificity_and_accuracy — are claims specific rather than vague, with caveats and edge cases noted where relevant?
+
+For each of these 5 criteria also write one concrete, actionable recommendation for improving THIS specific text on that criterion — write it even if the score is already high (it is only shown to the user when the total score across all 5 is low). This recommendation MUST be written in the target language stated below, not in English (unless that is the target language).
+
 ## Unnecessary rewrites
 
 Find passages the editor reworded compared to the AI DRAFT WITHOUT adding new information — no new facts, examples, numbers, or Bitrix24 mentions versus the draft's version of that passage (pure paraphrasing). For each one found, record { before: the AI DRAFT fragment, after: the FINAL TEXT fragment, reason: one short phrase in Russian }. List at most 5 in unnecessary_rewrites.examples and put the total count found in unnecessary_rewrites.count (count may exceed the number of examples listed). If none are found, count is 0 and examples is [].
@@ -113,6 +124,13 @@ Respond ONLY with valid JSON matching exactly this shape, no markdown, no preamb
     "fact_check": { "score": number, "explanation": string, "evidence": string[] },
     "links_quality": { "score": number, "explanation": string, "evidence": string[] }
   },
+  "ai_search_readiness": {
+    "answer_first_clarity": { "score": number, "recommendation": string },
+    "structure_and_formatting": { "score": number, "recommendation": string },
+    "definitions_and_terminology": { "score": number, "recommendation": string },
+    "extractability_and_quotability": { "score": number, "recommendation": string },
+    "specificity_and_accuracy": { "score": number, "recommendation": string }
+  },
   "unnecessary_rewrites": {
     "count": number,
     "examples": [{ "before": string, "after": string, "reason": string }]
@@ -132,6 +150,16 @@ const CRITERIA_KEYS = [
   "links_quality",
 ];
 
+const AI_SEARCH_KEYS = [
+  "answer_first_clarity",
+  "structure_and_formatting",
+  "definitions_and_terminology",
+  "extractability_and_quotability",
+  "specificity_and_accuracy",
+];
+
+const AI_SEARCH_READINESS_THRESHOLD = 38;
+
 const NOTE_LABELS = { rm: "Убрать", add: "Добавить", fix: "Улучшить" };
 
 function extractJson(text) {
@@ -149,6 +177,10 @@ function normalizeScore100(n) {
   return Math.max(0, Math.min(100, Math.round(Number(n)) || 0));
 }
 
+function normalizeScore10(n) {
+  return Math.max(0, Math.min(10, Math.round(Number(n)) || 0));
+}
+
 function normalize(parsed) {
   const rawCriteria = parsed.criteria || {};
   const criteria = {};
@@ -164,6 +196,22 @@ function normalize(parsed) {
   const hva = parsed.human_value_added || {};
   const rewrites = parsed.unnecessary_rewrites || {};
 
+  const rawSearch = parsed.ai_search_readiness || {};
+  const searchCriteria = {};
+  let searchTotal = 0;
+  for (const key of AI_SEARCH_KEYS) {
+    const c = rawSearch[key] || {};
+    const score = normalizeScore10(c.score);
+    searchCriteria[key] = { score, recommendation: c.recommendation || "" };
+    searchTotal += score;
+  }
+  const weakPoints =
+    searchTotal < AI_SEARCH_READINESS_THRESHOLD
+      ? AI_SEARCH_KEYS.map((key) => ({ key, ...searchCriteria[key] }))
+          .sort((a, b) => a.score - b.score)
+          .slice(0, 3)
+      : [];
+
   return {
     verdict: parsed.verdict === "ready" ? "ready" : "not_ready",
     verdict_text: parsed.verdict_text || "",
@@ -178,6 +226,11 @@ function normalize(parsed) {
       summary: hva.summary || "",
     },
     criteria,
+    ai_search_readiness: {
+      criteria: searchCriteria,
+      total: searchTotal,
+      weak_points: weakPoints,
+    },
     unnecessary_rewrites: {
       count: normalizeCount(rewrites.count),
       examples: Array.isArray(rewrites.examples)
@@ -255,7 +308,7 @@ export async function analyzeArticle({ draftText, finalText, language, draftLink
   const model = process.env.VIBE_AI_MODEL || "bitrix/bitrixgpt-5.5";
   const languageName = LANGUAGE_NAMES[language] || language;
   const userMessage = `Target language of the FINAL TEXT: ${languageName} (code: ${language})
-Write human_value_added.summary in ${languageName}.
+Write human_value_added.summary and all ai_search_readiness recommendations in ${languageName}.
 
 AI DRAFT:
 """

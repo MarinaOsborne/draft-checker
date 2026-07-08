@@ -141,6 +141,96 @@ function HumanValueAdded({ draftScore, finalScore, hva, verdict, verdictText, t 
   );
 }
 
+const AI_SEARCH_KEYS = [
+  "answer_first_clarity",
+  "structure_and_formatting",
+  "definitions_and_terminology",
+  "extractability_and_quotability",
+  "specificity_and_accuracy",
+];
+
+const AI_SEARCH_MAX_SCORE = 50;
+
+function AISearchReadiness({ data, t }) {
+  if (!data) return null;
+  const { criteria, total, weak_points: weakPoints } = data;
+  const totalColor = total < 38 ? ERROR : SUCCESS;
+
+  return (
+    <>
+      <div style={sectionLabelStyle}>{t.aiSearchReadiness.heading}</div>
+      <div
+        style={{
+          margin: "0 20px 20px",
+          background: "#fafafa",
+          border: "1px solid #e5e5e5",
+          borderRadius: 12,
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "14px 18px",
+            borderBottom: "1px solid #eee",
+          }}
+        >
+          <span style={{ fontSize: 20, fontWeight: 700, color: totalColor }}>
+            {total}/{AI_SEARCH_MAX_SCORE}
+          </span>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: 14 }}>
+          {AI_SEARCH_KEYS.map((key) => {
+            const c = criteria[key] || { score: 0 };
+            const { color, type, tag } = bucket(c.score, t);
+            return (
+              <div key={key} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 12, color: "#666", flex: "1 1 190px" }}>{t.aiSearchReadiness.criteria[key]}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flex: "1 1 120px" }}>
+                  <div style={{ flex: 1, height: 4, background: "#ebebeb", borderRadius: 2, overflow: "hidden" }}>
+                    <div style={{ width: `${c.score * 10}%`, height: "100%", background: color, borderRadius: 2 }} />
+                  </div>
+                  <span style={{ fontSize: 12, fontWeight: 600, minWidth: 20, textAlign: "right", flexShrink: 0 }}>{c.score}</span>
+                  <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, whiteSpace: "nowrap", flexShrink: 0, ...pillStyle[type] }}>
+                    {tag}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {weakPoints?.length > 0 && (
+          <div style={{ borderTop: "1px solid #eee", padding: "12px 18px" }}>
+            <div
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+                color: "#aaa",
+                marginBottom: 8,
+              }}
+            >
+              {t.aiSearchReadiness.weakPointsHeading}
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {weakPoints.map((w, i) => (
+                <div key={i} style={{ fontSize: 12, color: "#555", lineHeight: 1.5 }}>
+                  <span style={{ fontWeight: 600, color: DARK }}>{t.aiSearchReadiness.criteria[w.key]}:</span> {w.recommendation}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
 function CriteriaBreakdown({ criteria, redFlags, t }) {
   return (
     <div style={{ margin: "0 20px 20px", display: "flex", flexDirection: "column", gap: 8 }}>
@@ -231,6 +321,7 @@ export default function ScoreCard({ result, t }) {
         verdictText={result.verdict_text}
         t={t}
       />
+      <AISearchReadiness data={result.ai_search_readiness} t={t} />
       <CriteriaBreakdown criteria={result.criteria} redFlags={result.red_flags} t={t} />
     </>
   );
