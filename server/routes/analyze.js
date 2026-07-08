@@ -2,15 +2,22 @@ import { Router } from "express";
 import { requirePin } from "../middleware/requirePin.js";
 import { getRuns, incrementRuns, getMonthlyRuns, incrementMonthlyRuns, nextMonthlyResetDate } from "../lib/store.js";
 import { analyzeArticle } from "../lib/vibeAiClient.js";
+import { logAnalysis } from "../lib/analyticsStore.js";
 import { MAX_RUNS, MAX_MONTHLY_RUNS } from "../lib/constants.js";
 
 const router = Router();
 
 router.post("/analyze", requirePin, async (req, res) => {
   const { draftText, finalText, language, finalFilename, draftLinks, finalLinks } = req.body || {};
-  if (!draftText || !finalText || !language || !finalFilename) {
+  let username = "";
+  try {
+    username = decodeURIComponent(req.headers["x-username"] || "").trim();
+  } catch {
+    username = "";
+  }
+  if (!draftText || !finalText || !language || !finalFilename || !username) {
     return res.status(400).json({
-      error: "draftText, finalText, language и finalFilename обязательны",
+      error: "draftText, finalText, language, finalFilename и имя пользователя обязательны",
       code: "bad_request",
     });
   }
@@ -49,7 +56,7 @@ router.post("/analyze", requirePin, async (req, res) => {
   });
 
   try {
-    const result = await analyzeArticle({
+    const { analysis, usage } = await analyzeArticle({
       draftText,
       finalText,
       language,
@@ -62,7 +69,8 @@ router.post("/analyze", requirePin, async (req, res) => {
     }
     const runsCount = await incrementRuns(language, finalFilename);
     const monthlyRunsCount = await incrementMonthlyRuns();
-    res.json({ result, runsCount, monthlyRunsCount });
+    await logAnalysis({ username, language, filename: finalFilename, tokens: usage.total_tokens });
+    res.json({ result: analysis, runsCount, monthlyRunsCount });
   } catch (e) {
     console.error("AI Router analyze failed:", e.status || "", e.message, e.error || "");
     // Прогон НЕ списывается — increment выше выполняется только при успехе.

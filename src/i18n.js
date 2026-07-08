@@ -3,7 +3,7 @@ import { LANGS } from "./constants.js";
 const dict = {
   EN: {
     tagline: "Editorial review tool",
-    pin: { placeholder: "PIN code", error: "Incorrect PIN", submit: "Log in", checking: "Checking…" },
+    pin: { namePlaceholder: "Your name", placeholder: "PIN code", error: "Incorrect PIN", submit: "Log in", checking: "Checking…" },
     upload: {
       aiDraftTitle: "AI draft",
       aiDraftSubtitle: "The AI-generated draft you received",
@@ -87,7 +87,7 @@ const dict = {
 
   ES: {
     tagline: "Herramienta de revisión editorial",
-    pin: { placeholder: "Código PIN", error: "PIN incorrecto", submit: "Entrar", checking: "Comprobando…" },
+    pin: { namePlaceholder: "Tu nombre", placeholder: "Código PIN", error: "PIN incorrecto", submit: "Entrar", checking: "Comprobando…" },
     upload: {
       aiDraftTitle: "Borrador de IA",
       aiDraftSubtitle: "El borrador de IA que recibiste",
@@ -171,7 +171,7 @@ const dict = {
 
   BR: {
     tagline: "Ferramenta de revisão editorial",
-    pin: { placeholder: "Código PIN", error: "PIN incorreto", submit: "Entrar", checking: "Verificando…" },
+    pin: { namePlaceholder: "Seu nome", placeholder: "Código PIN", error: "PIN incorreto", submit: "Entrar", checking: "Verificando…" },
     upload: {
       aiDraftTitle: "Rascunho de IA",
       aiDraftSubtitle: "O rascunho de IA que você recebeu",
@@ -255,7 +255,7 @@ const dict = {
 
   DE: {
     tagline: "Redaktionelles Prüfwerkzeug",
-    pin: { placeholder: "PIN-Code", error: "Falscher PIN", submit: "Anmelden", checking: "Wird geprüft…" },
+    pin: { namePlaceholder: "Dein Name", placeholder: "PIN-Code", error: "Falscher PIN", submit: "Anmelden", checking: "Wird geprüft…" },
     upload: {
       aiDraftTitle: "KI-Entwurf",
       aiDraftSubtitle: "Der KI-Entwurf, den du erhalten hast",
@@ -339,7 +339,7 @@ const dict = {
 
   FR: {
     tagline: "Outil de relecture éditoriale",
-    pin: { placeholder: "Code PIN", error: "Code PIN incorrect", submit: "Se connecter", checking: "Vérification…" },
+    pin: { namePlaceholder: "Votre nom", placeholder: "Code PIN", error: "Code PIN incorrect", submit: "Se connecter", checking: "Vérification…" },
     upload: {
       aiDraftTitle: "Brouillon IA",
       aiDraftSubtitle: "Le brouillon IA que vous avez reçu",
@@ -423,7 +423,7 @@ const dict = {
 
   TR: {
     tagline: "Editoryal inceleme aracı",
-    pin: { placeholder: "PIN kodu", error: "Hatalı PIN", submit: "Giriş yap", checking: "Kontrol ediliyor…" },
+    pin: { namePlaceholder: "Adınız", placeholder: "PIN kodu", error: "Hatalı PIN", submit: "Giriş yap", checking: "Kontrol ediliyor…" },
     upload: {
       aiDraftTitle: "Yapay zeka taslağı",
       aiDraftSubtitle: "Aldığın yapay zeka taslağı",
@@ -507,7 +507,7 @@ const dict = {
 
   PL: {
     tagline: "Narzędzie do przeglądu redakcyjnego",
-    pin: { placeholder: "Kod PIN", error: "Nieprawidłowy PIN", submit: "Zaloguj się", checking: "Sprawdzanie…" },
+    pin: { namePlaceholder: "Twoje imię", placeholder: "Kod PIN", error: "Nieprawidłowy PIN", submit: "Zaloguj się", checking: "Sprawdzanie…" },
     upload: {
       aiDraftTitle: "Wersja robocza AI",
       aiDraftSubtitle: "Otrzymany szkic AI",
@@ -591,7 +591,7 @@ const dict = {
 
   VN: {
     tagline: "Công cụ đánh giá biên tập",
-    pin: { placeholder: "Mã PIN", error: "Sai mã PIN", submit: "Đăng nhập", checking: "Đang kiểm tra…" },
+    pin: { namePlaceholder: "Tên của bạn", placeholder: "Mã PIN", error: "Sai mã PIN", submit: "Đăng nhập", checking: "Đang kiểm tra…" },
     upload: {
       aiDraftTitle: "Bản nháp AI",
       aiDraftSubtitle: "Bản nháp AI bạn đã nhận được",

@@ -8,14 +8,14 @@ import NotesList from "./components/NotesList.jsx";
 import TopEdits from "./components/TopEdits.jsx";
 import UnnecessaryRewrites from "./components/UnnecessaryRewrites.jsx";
 import DiffView from "./components/DiffView.jsx";
-import { parseDocx, getRunCount, resetRunCount, analyzeArticle, getMonthlyStatus, clearPin } from "./api.js";
+import { parseDocx, getRunCount, resetRunCount, analyzeArticle, getMonthlyStatus, clearPin, isLoggedIn } from "./api.js";
 import { LANGS, MAX_RUNS, MAX_MONTHLY_RUNS, DARK } from "./constants.js";
 import { getTranslations, formatDate } from "./i18n.js";
 
 const EMPTY_FILE = { file: null, text: "", wordCount: 0, links: [] };
 
 export default function App() {
-  const [authenticated, setAuthenticated] = useState(() => Boolean(sessionStorage.getItem("aqc_pin")));
+  const [authenticated, setAuthenticated] = useState(() => isLoggedIn());
   const [activeLang, setActiveLang] = useState(LANGS[0]);
   const t = getTranslations(activeLang);
   const [draft, setDraft] = useState(EMPTY_FILE);

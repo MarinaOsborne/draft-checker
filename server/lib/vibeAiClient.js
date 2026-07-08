@@ -351,7 +351,17 @@ ${formatLinks(finalLinks)}`;
     throw new Error("AI Router не вернул текстовый ответ");
   }
   const parsed = extractJson(text);
-  return normalize(parsed);
+  return {
+    analysis: normalize(parsed),
+    // usage — стандартное OpenAI-совместимое поле; не проверено, что AI
+    // Router VibeCode его реально возвращает (см. предупреждение вверху
+    // файла) — если нет, logAnalysis запишет tokens: null.
+    usage: {
+      prompt_tokens: response.usage?.prompt_tokens ?? null,
+      completion_tokens: response.usage?.completion_tokens ?? null,
+      total_tokens: response.usage?.total_tokens ?? null,
+    },
+  };
 }
 
 const TEST_CONNECTION_TIMEOUT_MS = 8000;

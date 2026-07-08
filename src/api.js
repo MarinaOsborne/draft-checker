@@ -1,4 +1,5 @@
 const PIN_STORAGE_KEY = "aqc_pin";
+const USERNAME_STORAGE_KEY = "aqc_username";
 
 function getPin() {
   return sessionStorage.getItem(PIN_STORAGE_KEY) || "";
@@ -12,12 +13,29 @@ export function clearPin() {
   sessionStorage.removeItem(PIN_STORAGE_KEY);
 }
 
+function getUsername() {
+  return sessionStorage.getItem(USERNAME_STORAGE_KEY) || "";
+}
+
+export function setUsername(name) {
+  sessionStorage.setItem(USERNAME_STORAGE_KEY, name);
+}
+
+export function isLoggedIn() {
+  return Boolean(getPin()) && Boolean(getUsername());
+}
+
 async function request(path, options = {}) {
   const res = await fetch(path, {
     ...options,
     headers: {
       ...(options.headers || {}),
       "X-Access-Pin": getPin(),
+      // HTTP-заголовки по спеке — ASCII/Latin-1, а Node парсит их как
+      // latin1 — кириллица и другие не-ASCII имена приходят на сервер
+      // побитово испорченными без encodeURIComponent (проверено на
+      // практике: "Мария Иванова" превращалось в мусор).
+      "X-Username": encodeURIComponent(getUsername()),
     },
   });
   if (!res.ok) {
