@@ -188,7 +188,7 @@ function AISearchReadiness({ data, t }) {
             const { color, type, tag } = bucket(c.score, t);
             return (
               <div key={key} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                <span style={{ fontSize: 12, color: "#666", flex: "1 1 190px" }}>{t.aiSearchReadiness.criteria[key]}</span>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#666", flex: "1 1 190px" }}>{t.aiSearchReadiness.criteria[key]}</span>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flex: "1 1 120px" }}>
                   <div style={{ flex: 1, height: 4, background: "#ebebeb", borderRadius: 2, overflow: "hidden" }}>
                     <div style={{ width: `${c.score * 10}%`, height: "100%", background: color, borderRadius: 2 }} />
@@ -241,7 +241,7 @@ function CriteriaBreakdown({ criteria, redFlags, t }) {
         return (
           <div key={key} style={{ background: "#fafafa", border: "1px solid #e5e5e5", borderRadius: 10, padding: "12px 14px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 12, color: "#666", flex: "1 1 190px" }}>{t.criteria[key]}</span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: "#666", flex: "1 1 190px" }}>{t.criteria[key]}</span>
               <div style={{ display: "flex", alignItems: "center", gap: 10, flex: "1 1 120px" }}>
                 <div style={{ flex: 1, height: 4, background: "#ebebeb", borderRadius: 2, overflow: "hidden" }}>
                   <div style={{ width: `${c.score * 10}%`, height: "100%", background: color, borderRadius: 2 }} />
