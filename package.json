@@ -1,7 +1,7 @@
 {
   "name": "draft-checker",
   "version": "1.0.0",
-  "description": "Article Quality Checker — internal editorial review tool for Bitrix24 content team",
+  "description": "Vissarion — editorial intelligence tool for Bitrix24 content team",
   "type": "module",
   "main": "server/index.js",
   "scripts": {

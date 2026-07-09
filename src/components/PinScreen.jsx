@@ -1,7 +1,7 @@
 import { useState } from "react";
 import logo from "../assets/bitrix24-logo.png";
 import { verifyPin, setPin, setUsername } from "../api.js";
-import { DARK, BLUE, ERROR } from "../constants.js";
+import { DARK, ERROR, BRAND_FONT } from "../constants.js";
 
 export default function PinScreen({ onSuccess, t }) {
   const [name, setName] = useState("");
@@ -45,7 +45,22 @@ export default function PinScreen({ onSuccess, t }) {
         background: "#f5f7fa",
       }}
     >
-      <img src={logo} alt="Bitrix24" style={{ height: 48, marginBottom: 28 }} />
+      <img src={logo} alt="Bitrix24" style={{ height: 48, marginBottom: 14 }} />
+      <div
+        style={{
+          fontFamily: BRAND_FONT,
+          fontStyle: "italic",
+          fontWeight: 700,
+          fontSize: 34,
+          color: DARK,
+          lineHeight: 1.15,
+        }}
+      >
+        Vissarion
+      </div>
+      <div style={{ fontSize: 11, color: "#aaa", marginBottom: 28, letterSpacing: "0.02em" }}>
+        Editorial Intelligence by Bitrix24
+      </div>
       <form
         onSubmit={handleSubmit}
         style={{
@@ -104,9 +119,6 @@ export default function PinScreen({ onSuccess, t }) {
           {checking ? t.pin.checking : t.pin.submit}
         </button>
       </form>
-      <div style={{ marginTop: 20, fontSize: 11, color: "#aaa" }}>
-        <span style={{ color: BLUE }}>Article Quality Checker</span> · {t.tagline}
-      </div>
     </div>
   );
 }

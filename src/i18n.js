@@ -2,7 +2,7 @@ import { LANGS } from "./constants.js";
 
 const dict = {
   EN: {
-    tagline: "Editorial review tool",
+    tagline: "Editorial Intelligence",
     pin: { namePlaceholder: "Your name", placeholder: "PIN code", error: "Incorrect PIN", submit: "Log in", checking: "Checking…" },
     upload: {
       aiDraftTitle: "AI draft",
@@ -86,7 +86,7 @@ const dict = {
   },
 
   ES: {
-    tagline: "Herramienta de revisión editorial",
+    tagline: "Editorial Intelligence",
     pin: { namePlaceholder: "Tu nombre", placeholder: "Código PIN", error: "PIN incorrecto", submit: "Entrar", checking: "Comprobando…" },
     upload: {
       aiDraftTitle: "Borrador de IA",
@@ -170,7 +170,7 @@ const dict = {
   },
 
   BR: {
-    tagline: "Ferramenta de revisão editorial",
+    tagline: "Editorial Intelligence",
     pin: { namePlaceholder: "Seu nome", placeholder: "Código PIN", error: "PIN incorreto", submit: "Entrar", checking: "Verificando…" },
     upload: {
       aiDraftTitle: "Rascunho de IA",
@@ -254,7 +254,7 @@ const dict = {
   },
 
   DE: {
-    tagline: "Redaktionelles Prüfwerkzeug",
+    tagline: "Editorial Intelligence",
     pin: { namePlaceholder: "Dein Name", placeholder: "PIN-Code", error: "Falscher PIN", submit: "Anmelden", checking: "Wird geprüft…" },
     upload: {
       aiDraftTitle: "KI-Entwurf",
@@ -338,7 +338,7 @@ const dict = {
   },
 
   FR: {
-    tagline: "Outil de relecture éditoriale",
+    tagline: "Editorial Intelligence",
     pin: { namePlaceholder: "Votre nom", placeholder: "Code PIN", error: "Code PIN incorrect", submit: "Se connecter", checking: "Vérification…" },
     upload: {
       aiDraftTitle: "Brouillon IA",
@@ -422,7 +422,7 @@ const dict = {
   },
 
   TR: {
-    tagline: "Editoryal inceleme aracı",
+    tagline: "Editorial Intelligence",
     pin: { namePlaceholder: "Adınız", placeholder: "PIN kodu", error: "Hatalı PIN", submit: "Giriş yap", checking: "Kontrol ediliyor…" },
     upload: {
       aiDraftTitle: "Yapay zeka taslağı",
@@ -506,7 +506,7 @@ const dict = {
   },
 
   PL: {
-    tagline: "Narzędzie do przeglądu redakcyjnego",
+    tagline: "Editorial Intelligence",
     pin: { namePlaceholder: "Twoje imię", placeholder: "Kod PIN", error: "Nieprawidłowy PIN", submit: "Zaloguj się", checking: "Sprawdzanie…" },
     upload: {
       aiDraftTitle: "Wersja robocza AI",
@@ -590,7 +590,7 @@ const dict = {
   },
 
   VN: {
-    tagline: "Công cụ đánh giá biên tập",
+    tagline: "Editorial Intelligence",
     pin: { namePlaceholder: "Tên của bạn", placeholder: "Mã PIN", error: "Sai mã PIN", submit: "Đăng nhập", checking: "Đang kiểm tra…" },
     upload: {
       aiDraftTitle: "Bản nháp AI",
