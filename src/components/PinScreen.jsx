@@ -1,7 +1,7 @@
 import { useState } from "react";
 import logo from "../assets/bitrix24-logo.png";
 import { verifyPin, setPin, setUsername } from "../api.js";
-import { DARK, ERROR, BRAND_FONT, BRAND_FONT_WEIGHT } from "../constants.js";
+import { DARK, ERROR, BRAND_FONT } from "../constants.js";
 
 export default function PinScreen({ onSuccess, t }) {
   const [name, setName] = useState("");
@@ -50,7 +50,7 @@ export default function PinScreen({ onSuccess, t }) {
         style={{
           fontFamily: BRAND_FONT,
           fontStyle: "italic",
-          fontWeight: BRAND_FONT_WEIGHT,
+          fontWeight: 700,
           fontSize: 34,
           color: DARK,
           lineHeight: 1.15,

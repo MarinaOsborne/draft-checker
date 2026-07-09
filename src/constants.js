@@ -9,8 +9,7 @@ export const WARNING = "#e67e22";
 export const ERROR = "#e24b4a";
 
 // Логотип "Vissarion" — курсивный Google Font, подключён в index.html.
-export const BRAND_FONT = "'Cormorant Garamond', 'Georgia', serif";
-export const BRAND_FONT_WEIGHT = 400;
+export const BRAND_FONT = "'Playfair Display', 'Georgia', serif";
 
 export const CRITERIA_KEYS = [
   "real_world_expertise",

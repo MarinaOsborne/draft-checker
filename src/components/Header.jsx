@@ -1,5 +1,5 @@
 import logo from "../assets/bitrix24-logo.png";
-import { LANGS, BLUE, DARK, BRAND_FONT, BRAND_FONT_WEIGHT } from "../constants.js";
+import { LANGS, BLUE, DARK, BRAND_FONT } from "../constants.js";
 
 export default function Header({ activeLang, onLangChange, t }) {
   return (
@@ -17,7 +17,7 @@ export default function Header({ activeLang, onLangChange, t }) {
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <img src={logo} alt="Bitrix24" style={{ height: 36, width: "auto" }} />
         <div style={{ borderLeft: "1px solid #ddd", paddingLeft: 12 }}>
-          <div style={{ fontFamily: BRAND_FONT, fontStyle: "italic", fontWeight: BRAND_FONT_WEIGHT, fontSize: 20, color: DARK, lineHeight: 1.1 }}>
+          <div style={{ fontFamily: BRAND_FONT, fontStyle: "italic", fontWeight: 700, fontSize: 20, color: DARK, lineHeight: 1.1 }}>
             Vissarion
           </div>
           <div style={{ fontSize: 11, color: "#888" }}>{t.tagline}</div>
