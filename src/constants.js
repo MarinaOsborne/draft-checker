@@ -1,4 +1,4 @@
-export const LANGS = ["EN", "ES", "BR", "DE", "FR", "TR", "PL", "VN"];
+export const LANGS = ["EN", "ES", "BR", "DE", "FR", "TR", "PL", "VN", "IT"];
 export const MAX_RUNS = 3;
 export const MAX_MONTHLY_RUNS = 412;
 
