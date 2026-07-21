@@ -29,6 +29,7 @@ const LANGUAGE_NAMES = {
   TR: "Turkish",
   PL: "Polish",
   VN: "Vietnamese",
+  IT: "Italian",
 };
 
 const SYSTEM_PROMPT = `You are an expert editorial reviewer for Bitrix24's multilingual content team.
@@ -96,6 +97,14 @@ For each of these 5 criteria also write one concrete, actionable recommendation 
 Find passages the editor reworded compared to the AI DRAFT WITHOUT adding new information — no new facts, examples, numbers, or Bitrix24 mentions versus the draft's version of that passage (pure paraphrasing). For each one found, record { before: the AI DRAFT fragment, after: the FINAL TEXT fragment, reason: one short phrase in Russian }. List at most 5 in unnecessary_rewrites.examples and put the total count found in unnecessary_rewrites.count (count may exceed the number of examples listed). If none are found, count is 0 and examples is [].
 
 ## Also return
+
+When deciding verdict, weigh all 7 criteria together — do not let a single
+weak criterion (especially links_quality or fact_check when the article
+genuinely has no external claims to source) force "not_ready" on its own if
+the other 6 criteria are strong. Reflect a low links_quality or fact_check
+score in red_flags instead, so the user sees it, without it single-handedly
+overriding an otherwise ready article.
+
 - verdict: "ready" or "not_ready"
 - verdict_text: one sentence why (in Russian)
 - red_flags: array of critical issues (max 4, in Russian)
