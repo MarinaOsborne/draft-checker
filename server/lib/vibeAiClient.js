@@ -45,6 +45,15 @@ Score each version holistically on a 0-100 scale — how good would this article
 
 These are independent holistic scores, not an average of the per-criterion breakdown below. A final text that meaningfully improved on the draft should score meaningfully higher.
 
+Calibration — DO NOT default to a "safe" middle number regardless of content. Actually read the text and let the score swing across the full range based on what's really there:
+- 0-25: generic AI filler, no real expertise, cliché-heavy, could be about any product
+- 26-50: some substance but mostly generic, weak or missing examples, noticeable AI patterns
+- 51-70: competent and usable but unremarkable — nothing that couldn't be written by a template
+- 71-90: specific, concrete, clearly edited by someone who knows the product and audience
+- 91-100: exceptional, publication-ready with no notable weaknesses
+
+Before writing the score, write one short sentence (ai_draft_quality_reasoning / final_article_quality_reasoning) citing something SPECIFIC from that version of the text that justifies the number — not a generic statement that could apply to any draft. Two different drafts should essentially never land on the same score unless they are genuinely, specifically comparable in quality.
+
 ## Human value added detail (supporting metrics, shown below the main score — not the primary metric)
 
 Compare FINAL TEXT against AI DRAFT and count, as concrete integers:
@@ -106,7 +115,9 @@ Respond ONLY with valid JSON matching exactly this shape, no markdown, no preamb
   "verdict": "ready" | "not_ready",
   "verdict_text": string,
   "ai_draft_quality": number,
+  "ai_draft_quality_reasoning": string,
   "final_article_quality": number,
+  "final_article_quality_reasoning": string,
   "human_value_added": {
     "statistics_added": number,
     "real_world_examples_added": number,
@@ -216,7 +227,9 @@ function normalize(parsed) {
     verdict: parsed.verdict === "ready" ? "ready" : "not_ready",
     verdict_text: parsed.verdict_text || "",
     ai_draft_quality: normalizeScore100(parsed.ai_draft_quality),
+    ai_draft_quality_reasoning: parsed.ai_draft_quality_reasoning || "",
     final_article_quality: normalizeScore100(parsed.final_article_quality),
+    final_article_quality_reasoning: parsed.final_article_quality_reasoning || "",
     human_value_added: {
       statistics_added: normalizeCount(hva.statistics_added),
       real_world_examples_added: normalizeCount(hva.real_world_examples_added),
@@ -351,8 +364,18 @@ ${formatLinks(finalLinks)}`;
     throw new Error("AI Router не вернул текстовый ответ");
   }
   const parsed = extractJson(text);
+  const analysis = normalize(parsed);
+  // Диагностика "подозрительно одинаковых" holistic-оценок (см. историю:
+  // жалоба, что ai_draft_quality у разных драфтов выходит одним и тем же
+  // числом) — печатаем сырые значения и обоснование модели, чтобы можно
+  // было сверить на реальных прогонах, действительно ли модель каждый раз
+  // возвращает одно и то же (тогда дело в промпте/модели, а не в коде).
+  console.log(
+    `[analyze] ai_draft_quality=${analysis.ai_draft_quality} (${analysis.ai_draft_quality_reasoning || "no reasoning"}) ` +
+      `final_article_quality=${analysis.final_article_quality} (${analysis.final_article_quality_reasoning || "no reasoning"})`
+  );
   return {
-    analysis: normalize(parsed),
+    analysis,
     // usage — стандартное OpenAI-совместимое поле; не проверено, что AI
     // Router VibeCode его реально возвращает (см. предупреждение вверху
     // файла) — если нет, logAnalysis запишет tokens: null.
