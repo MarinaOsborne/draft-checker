@@ -1,6 +1,13 @@
 import { Router } from "express";
 import { requirePin } from "../middleware/requirePin.js";
-import { getRuns, incrementRuns, getMonthlyRuns, incrementMonthlyRuns, nextMonthlyResetDate } from "../lib/store.js";
+import {
+  getRuns,
+  incrementRuns,
+  getMonthlyRuns,
+  incrementMonthlyRuns,
+  nextMonthlyResetDate,
+  saveAnalysisRecord,
+} from "../lib/store.js";
 import { analyzeArticle } from "../lib/vibeAiClient.js";
 import { logAnalysis } from "../lib/analyticsStore.js";
 import { MAX_RUNS, MAX_MONTHLY_RUNS } from "../lib/constants.js";
@@ -63,6 +70,30 @@ router.post("/analyze", requirePin, async (req, res) => {
       draftLinks: Array.isArray(draftLinks) ? draftLinks : [],
       finalLinks: Array.isArray(finalLinks) ? finalLinks : [],
     });
+    try {
+      await saveAnalysisRecord({
+        timestamp: new Date().toISOString(),
+        language,
+        draftText,
+        finalText,
+        verdict: analysis.verdict,
+        finalScore: analysis.final_article_quality,
+        draftScore: analysis.ai_draft_quality,
+        hva: {
+          stats: analysis.human_value_added.statistics_added,
+          examples: analysis.human_value_added.real_world_examples_added,
+          bitrix: analysis.human_value_added.bitrix24_integrations_added,
+          cliches: analysis.human_value_added.ai_cliches_removed,
+          filler: analysis.human_value_added.filler_sentences_removed,
+        },
+        bestEdits: analysis.top_edits,
+        unnecessaryRewrites: analysis.unnecessary_rewrites,
+      });
+    } catch (e) {
+      // Не роняем прогон редактора из-за ошибки записи лога — только логируем.
+      console.error("Не удалось сохранить запись в data/analysis-log.jsonl:", e);
+    }
+
     if (clientDisconnected) {
       console.warn("Клиент отключился до получения ответа — прогон не списан.");
       return;

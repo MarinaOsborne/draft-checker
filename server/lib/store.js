@@ -3,6 +3,7 @@ import path from "path";
 
 const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), "data");
 const RUNS_FILE = path.join(DATA_DIR, "runs.json");
+const ANALYSIS_LOG_FILE = path.join(DATA_DIR, "analysis-log.jsonl");
 
 let writeQueue = Promise.resolve();
 
@@ -84,6 +85,17 @@ export function incrementMonthlyRuns() {
     all[key] = next;
     await fs.writeFile(RUNS_FILE, JSON.stringify(all, null, 2), "utf8");
     return next;
+  });
+}
+
+// Append-only JSONL log of full analysis results (one JSON object per line)
+// — kept separate from runs.json (which only tracks per-file/monthly
+// counters) so it can grow indefinitely and be parsed line-by-line later
+// without ever needing to read-modify-write the whole file.
+export function saveAnalysisRecord(record) {
+  return withLock(async () => {
+    await fs.mkdir(DATA_DIR, { recursive: true });
+    await fs.appendFile(ANALYSIS_LOG_FILE, JSON.stringify(record) + "\n", "utf8");
   });
 }
 
