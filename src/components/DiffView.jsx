@@ -1,8 +1,64 @@
 import { useMemo } from "react";
-import { diffWords } from "diff";
+import { diffSentences, diffWords } from "diff";
+
+// Ниже 35% пересечения слов — считаем, что предложение переписано целиком, и
+// не пытаемся искать словесные совпадения внутри него. Иначе на сильно
+// переписанных абзацах word-diff цепляется за случайные предлоги/союзы
+// (напр. "di", "a", "e") в обоих предложениях, и удалённый кусок из середины
+// старого предложения визуально "всплывает" посреди нового — вместо
+// естественного порядка "было → стало" получается нечитаемая мешанина.
+const SENTENCE_OVERLAP_THRESHOLD = 0.35;
+
+function tokenizeWords(text) {
+  return text.toLowerCase().match(/[\p{L}\p{N}]+/gu) || [];
+}
+
+// Overlap coefficient (|A∩B| / min(|A|,|B|)), а не Jaccard — иначе короткое
+// предложение, полностью "растворившееся" в длинном переписанном абзаце,
+// давало бы заниженный процент только из-за разницы в длине.
+function wordOverlapRatio(a, b) {
+  const setA = new Set(tokenizeWords(a));
+  const setB = new Set(tokenizeWords(b));
+  if (setA.size === 0 || setB.size === 0) return 0;
+  let common = 0;
+  for (const w of setA) if (setB.has(w)) common++;
+  return common / Math.min(setA.size, setB.size);
+}
+
+function smartDiff(draftText, finalText) {
+  const sentenceParts = diffSentences(draftText || "", finalText || "");
+  const result = [];
+  let i = 0;
+  while (i < sentenceParts.length) {
+    const part = sentenceParts[i];
+    const next = sentenceParts[i + 1];
+    const removedThenAdded = part?.removed && next?.added;
+    const addedThenRemoved = part?.added && next?.removed;
+
+    if (removedThenAdded || addedThenRemoved) {
+      const removedPart = removedThenAdded ? part : next;
+      const addedPart = removedThenAdded ? next : part;
+      const overlap = wordOverlapRatio(removedPart.value, addedPart.value);
+      if (overlap >= SENTENCE_OVERLAP_THRESHOLD) {
+        // Похожие предложения — уточняем разницу на уровне слов внутри пары.
+        result.push(...diffWords(removedPart.value, addedPart.value));
+      } else {
+        // Разные по сути предложения — оставляем целыми блоками, без
+        // ложного якорения на общих предлогах/частицах.
+        result.push(part, next);
+      }
+      i += 2;
+      continue;
+    }
+
+    result.push(part);
+    i += 1;
+  }
+  return result;
+}
 
 export default function DiffView({ draftText, finalText, t }) {
-  const parts = useMemo(() => diffWords(draftText || "", finalText || ""), [draftText, finalText]);
+  const parts = useMemo(() => smartDiff(draftText, finalText), [draftText, finalText]);
   const legend = [
     ["#eaf3de", "#97c459", t.diff.added],
     ["#fce8e8", "#f09595", t.diff.removed],
