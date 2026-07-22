@@ -43,22 +43,53 @@ function statsPage(logs) {
   let totalTokens = 0;
   for (const entry of logs) {
     const key = entry.username || "unknown";
-    if (!byUser.has(key)) byUser.set(key, { count: 0, tokens: 0, last: entry.timestamp });
+    if (!byUser.has(key)) {
+      byUser.set(key, {
+        count: 0,
+        tokens: 0,
+        last: entry.timestamp,
+        readyCount: 0,
+        finalScoreSum: 0,
+        finalScoreCount: 0,
+        hvaTotalSum: 0,
+        hvaCount: 0,
+      });
+    }
     const u = byUser.get(key);
     u.count += 1;
     u.tokens += Number(entry.tokens) || 0;
     if (entry.timestamp > u.last) u.last = entry.timestamp;
     totalTokens += Number(entry.tokens) || 0;
+
+    if (entry.verdict === "ready") u.readyCount += 1;
+
+    if (Number.isFinite(entry.finalScore)) {
+      u.finalScoreSum += entry.finalScore;
+      u.finalScoreCount += 1;
+    }
+
+    if (entry.hva && typeof entry.hva === "object") {
+      const hvaTotal =
+        (Number(entry.hva.statistics_added) || 0) +
+        (Number(entry.hva.real_world_examples_added) || 0) +
+        (Number(entry.hva.bitrix24_integrations_added) || 0) +
+        (Number(entry.hva.ai_cliches_removed) || 0) +
+        (Number(entry.hva.filler_sentences_removed) || 0);
+      u.hvaTotalSum += hvaTotal;
+      u.hvaCount += 1;
+    }
   }
 
   const userRows =
     [...byUser.entries()]
       .sort((a, b) => b[1].count - a[1].count)
-      .map(
-        ([name, u]) =>
-          `<tr><td>${escapeHtml(name)}</td><td>${u.count}</td><td>${u.tokens}</td><td>${escapeHtml(u.last)}</td></tr>`
-      )
-      .join("") || `<tr><td colspan="4">Нет данных</td></tr>`;
+      .map(([name, u]) => {
+        const avgFinalScore = u.finalScoreCount > 0 ? (u.finalScoreSum / u.finalScoreCount).toFixed(1) : "—";
+        const avgHvaTotal = u.hvaCount > 0 ? (u.hvaTotalSum / u.hvaCount).toFixed(1) : "—";
+        const readyRate = u.count > 0 ? Math.round((u.readyCount / u.count) * 100) : 0;
+        return `<tr><td>${escapeHtml(name)}</td><td>${u.count}</td><td>${u.tokens}</td><td>${avgFinalScore}</td><td>${avgHvaTotal}</td><td>${readyRate}%</td><td>${escapeHtml(u.last)}</td></tr>`;
+      })
+      .join("") || `<tr><td colspan="7">Нет данных</td></tr>`;
 
   const recentRows =
     logs
@@ -92,7 +123,7 @@ function statsPage(logs) {
 
   <h2>По пользователям</h2>
   <table>
-    <thead><tr><th>Имя</th><th>Прогонов</th><th>Токенов</th><th>Последняя активность</th></tr></thead>
+    <thead><tr><th>Имя</th><th>Прогонов</th><th>Токенов</th><th>Средний Final Score</th><th>Средний HVA</th><th>Ready %</th><th>Последняя активность</th></tr></thead>
     <tbody>${userRows}</tbody>
   </table>
 

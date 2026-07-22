@@ -37,7 +37,7 @@ async function readAll() {
 
 // Пишем построчно в JSON-массив (тот же паттерн write-lock, что и в store.js)
 // — при небольшом внутреннем инструменте это проще, чем поднимать БД.
-export function logAnalysis({ username, language, filename, tokens }) {
+export function logAnalysis({ username, language, filename, tokens, verdict, draftScore, finalScore, hva, topEdits }) {
   return withLock(async () => {
     const all = await readAll();
     const entry = {
@@ -46,6 +46,11 @@ export function logAnalysis({ username, language, filename, tokens }) {
       language: language || "",
       filename: filename || "",
       tokens: Number.isFinite(tokens) ? tokens : null,
+      verdict: verdict || null, // "ready" | "not_ready"
+      draftScore: Number.isFinite(draftScore) ? draftScore : null, // ai_draft_quality
+      finalScore: Number.isFinite(finalScore) ? finalScore : null, // final_article_quality
+      hva: hva || null, // весь объект human_value_added как есть
+      topEdits: Array.isArray(topEdits) ? topEdits : [], // top_edits как есть
     };
     all.push(entry);
     await fs.writeFile(LOG_FILE, JSON.stringify(all, null, 2), "utf8");

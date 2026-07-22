@@ -100,7 +100,17 @@ router.post("/analyze", requirePin, async (req, res) => {
     }
     const runsCount = await incrementRuns(language, finalFilename);
     const monthlyRunsCount = await incrementMonthlyRuns();
-    await logAnalysis({ username, language, filename: finalFilename, tokens: usage.total_tokens });
+    await logAnalysis({
+      username,
+      language,
+      filename: finalFilename,
+      tokens: usage.total_tokens,
+      verdict: analysis.verdict,
+      draftScore: analysis.ai_draft_quality,
+      finalScore: analysis.final_article_quality,
+      hva: analysis.human_value_added,
+      topEdits: analysis.top_edits,
+    });
     res.json({ result: analysis, runsCount, monthlyRunsCount });
   } catch (e) {
     console.error("AI Router analyze failed:", e.status || "", e.message, e.error || "");
