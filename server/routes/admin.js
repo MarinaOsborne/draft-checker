@@ -38,15 +38,17 @@ function passwordForm(wrongPassword) {
 </body></html>`;
 }
 
-function hvaTotal(entry) {
-  if (!entry.hva || typeof entry.hva !== "object") return null;
-  return (
-    (Number(entry.hva.statistics_added) || 0) +
-    (Number(entry.hva.real_world_examples_added) || 0) +
-    (Number(entry.hva.bitrix24_integrations_added) || 0) +
-    (Number(entry.hva.ai_cliches_removed) || 0) +
-    (Number(entry.hva.filler_sentences_removed) || 0)
-  );
+// То же самое "+20" (Wartość dodana przez człowieka / Human Value Added),
+// что видит редактор в интерфейсе: finalScore - draftScore. Не сумма
+// счётчиков из блока "Details" — это отдельная, более мелкая метрика.
+function scoreDelta(entry) {
+  if (!Number.isFinite(entry.finalScore) || !Number.isFinite(entry.draftScore)) return null;
+  return entry.finalScore - entry.draftScore;
+}
+
+function formatDelta(delta) {
+  if (delta === null) return "—";
+  return delta > 0 ? `+${delta}` : `${delta}`;
 }
 
 function statsPage(logs) {
@@ -62,8 +64,8 @@ function statsPage(logs) {
         readyCount: 0,
         finalScoreSum: 0,
         finalScoreCount: 0,
-        hvaTotalSum: 0,
-        hvaCount: 0,
+        deltaSum: 0,
+        deltaCount: 0,
       });
     }
     const u = byUser.get(key);
@@ -79,10 +81,10 @@ function statsPage(logs) {
       u.finalScoreCount += 1;
     }
 
-    const entryHva = hvaTotal(entry);
-    if (entryHva !== null) {
-      u.hvaTotalSum += entryHva;
-      u.hvaCount += 1;
+    const delta = scoreDelta(entry);
+    if (delta !== null) {
+      u.deltaSum += delta;
+      u.deltaCount += 1;
     }
   }
 
@@ -91,9 +93,10 @@ function statsPage(logs) {
       .sort((a, b) => b[1].count - a[1].count)
       .map(([name, u]) => {
         const avgFinalScore = u.finalScoreCount > 0 ? (u.finalScoreSum / u.finalScoreCount).toFixed(1) : "—";
-        const avgHvaTotal = u.hvaCount > 0 ? (u.hvaTotalSum / u.hvaCount).toFixed(1) : "—";
+        const avgDeltaValue = u.deltaCount > 0 ? Number((u.deltaSum / u.deltaCount).toFixed(1)) : null;
+        const avgDelta = avgDeltaValue === null ? "—" : avgDeltaValue > 0 ? `+${avgDeltaValue}` : `${avgDeltaValue}`;
         const readyRate = u.count > 0 ? Math.round((u.readyCount / u.count) * 100) : 0;
-        return `<tr><td>${escapeHtml(name)}</td><td>${u.count}</td><td>${u.tokens}</td><td>${avgFinalScore}</td><td>${avgHvaTotal}</td><td>${readyRate}%</td><td>${escapeHtml(u.last)}</td></tr>`;
+        return `<tr><td>${escapeHtml(name)}</td><td>${u.count}</td><td>${u.tokens}</td><td>${avgFinalScore}</td><td>${avgDelta}</td><td>${readyRate}%</td><td>${escapeHtml(u.last)}</td></tr>`;
       })
       .join("") || `<tr><td colspan="7">Нет данных</td></tr>`;
 
@@ -102,8 +105,8 @@ function statsPage(logs) {
       .slice(-200)
       .reverse()
       .map((e) => {
-        const hva = hvaTotal(e);
-        return `<tr><td>${escapeHtml(e.timestamp)}</td><td>${escapeHtml(e.username)}</td><td>${escapeHtml(e.language)}</td><td>${escapeHtml(e.filename)}</td><td>${hva ?? "—"}</td><td>${e.tokens ?? "—"}</td></tr>`;
+        const delta = scoreDelta(e);
+        return `<tr><td>${escapeHtml(e.timestamp)}</td><td>${escapeHtml(e.username)}</td><td>${escapeHtml(e.language)}</td><td>${escapeHtml(e.filename)}</td><td>${formatDelta(delta)}</td><td>${e.tokens ?? "—"}</td></tr>`;
       })
       .join("") || `<tr><td colspan="6">Нет данных</td></tr>`;
 
