@@ -37,7 +37,19 @@ async function readAll() {
 
 // Пишем построчно в JSON-массив (тот же паттерн write-lock, что и в store.js)
 // — при небольшом внутреннем инструменте это проще, чем поднимать БД.
-export function logAnalysis({ username, language, filename, tokens, verdict, draftScore, finalScore, hva, topEdits }) {
+export function logAnalysis({
+  username,
+  language,
+  filename,
+  tokens,
+  verdict,
+  draftScore,
+  finalScore,
+  draftScoreReasoning,
+  finalScoreReasoning,
+  hva,
+  topEdits,
+}) {
   return withLock(async () => {
     const all = await readAll();
     const entry = {
@@ -49,6 +61,11 @@ export function logAnalysis({ username, language, filename, tokens, verdict, dra
       verdict: verdict || null, // "ready" | "not_ready"
       draftScore: Number.isFinite(draftScore) ? draftScore : null, // ai_draft_quality
       finalScore: Number.isFinite(finalScore) ? finalScore : null, // final_article_quality
+      // Обоснование модели под каждый холистический балл — нужно, чтобы
+      // проверять подозрительные скачки (напр. "+14 при изменении одного
+      // слова") прямо с /admin/stats, без доступа к файлам/логам сервера.
+      draftScoreReasoning: draftScoreReasoning || "",
+      finalScoreReasoning: finalScoreReasoning || "",
       hva: hva || null, // весь объект human_value_added как есть
       topEdits: Array.isArray(topEdits) ? topEdits : [], // top_edits как есть
     };

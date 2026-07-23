@@ -79,6 +79,14 @@ router.post("/analyze", requirePin, async (req, res) => {
         verdict: analysis.verdict,
         finalScore: analysis.final_article_quality,
         draftScore: analysis.ai_draft_quality,
+        // Обоснования, которые модель обязана давать под каждый холистический
+        // балл (см. system-промпт в vibeAiClient.js) — раньше терялись
+        // (печатались только в консоль сервера, к которой нет доступа на
+        // платформе). Без них нельзя было проверить, реально ли модель
+        // сопоставила счёт с текстом или "заякорилась" на правдоподобном
+        // числе — см. жалобу "+14 при изменении одного слова".
+        draftScoreReasoning: analysis.ai_draft_quality_reasoning || "",
+        finalScoreReasoning: analysis.final_article_quality_reasoning || "",
         hva: {
           stats: analysis.human_value_added.statistics_added,
           examples: analysis.human_value_added.real_world_examples_added,
@@ -108,6 +116,8 @@ router.post("/analyze", requirePin, async (req, res) => {
       verdict: analysis.verdict,
       draftScore: analysis.ai_draft_quality,
       finalScore: analysis.final_article_quality,
+      draftScoreReasoning: analysis.ai_draft_quality_reasoning,
+      finalScoreReasoning: analysis.final_article_quality_reasoning,
       hva: analysis.human_value_added,
       topEdits: analysis.top_edits,
     });

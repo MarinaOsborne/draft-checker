@@ -106,7 +106,12 @@ function statsPage(logs) {
       .reverse()
       .map((e) => {
         const delta = scoreDelta(e);
-        return `<tr><td>${escapeHtml(e.timestamp)}</td><td>${escapeHtml(e.username)}</td><td>${escapeHtml(e.language)}</td><td>${escapeHtml(e.filename)}</td><td>${formatDelta(delta)}</td><td>${e.tokens ?? "—"}</td></tr>`;
+        const reasoningLines = [
+          e.draftScoreReasoning ? `Draft (${e.draftScore ?? "—"}): ${e.draftScoreReasoning}` : "",
+          e.finalScoreReasoning ? `Final (${e.finalScore ?? "—"}): ${e.finalScoreReasoning}` : "",
+        ].filter(Boolean);
+        const tooltip = reasoningLines.length > 0 ? ` title="${escapeHtml(reasoningLines.join("\n"))}"` : "";
+        return `<tr><td>${escapeHtml(e.timestamp)}</td><td>${escapeHtml(e.username)}</td><td>${escapeHtml(e.language)}</td><td>${escapeHtml(e.filename)}</td><td${tooltip} style="cursor:${tooltip ? "help" : "default"}">${formatDelta(delta)}</td><td>${e.tokens ?? "—"}</td></tr>`;
       })
       .join("") || `<tr><td colspan="6">Нет данных</td></tr>`;
 
