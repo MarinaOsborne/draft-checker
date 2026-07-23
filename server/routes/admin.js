@@ -38,6 +38,17 @@ function passwordForm(wrongPassword) {
 </body></html>`;
 }
 
+function hvaTotal(entry) {
+  if (!entry.hva || typeof entry.hva !== "object") return null;
+  return (
+    (Number(entry.hva.statistics_added) || 0) +
+    (Number(entry.hva.real_world_examples_added) || 0) +
+    (Number(entry.hva.bitrix24_integrations_added) || 0) +
+    (Number(entry.hva.ai_cliches_removed) || 0) +
+    (Number(entry.hva.filler_sentences_removed) || 0)
+  );
+}
+
 function statsPage(logs) {
   const byUser = new Map();
   let totalTokens = 0;
@@ -68,14 +79,9 @@ function statsPage(logs) {
       u.finalScoreCount += 1;
     }
 
-    if (entry.hva && typeof entry.hva === "object") {
-      const hvaTotal =
-        (Number(entry.hva.statistics_added) || 0) +
-        (Number(entry.hva.real_world_examples_added) || 0) +
-        (Number(entry.hva.bitrix24_integrations_added) || 0) +
-        (Number(entry.hva.ai_cliches_removed) || 0) +
-        (Number(entry.hva.filler_sentences_removed) || 0);
-      u.hvaTotalSum += hvaTotal;
+    const entryHva = hvaTotal(entry);
+    if (entryHva !== null) {
+      u.hvaTotalSum += entryHva;
       u.hvaCount += 1;
     }
   }
@@ -95,11 +101,11 @@ function statsPage(logs) {
     logs
       .slice(-200)
       .reverse()
-      .map(
-        (e) =>
-          `<tr><td>${escapeHtml(e.timestamp)}</td><td>${escapeHtml(e.username)}</td><td>${escapeHtml(e.language)}</td><td>${escapeHtml(e.filename)}</td><td>${e.tokens ?? "—"}</td></tr>`
-      )
-      .join("") || `<tr><td colspan="5">Нет данных</td></tr>`;
+      .map((e) => {
+        const hva = hvaTotal(e);
+        return `<tr><td>${escapeHtml(e.timestamp)}</td><td>${escapeHtml(e.username)}</td><td>${escapeHtml(e.language)}</td><td>${escapeHtml(e.filename)}</td><td>${hva ?? "—"}</td><td>${e.tokens ?? "—"}</td></tr>`;
+      })
+      .join("") || `<tr><td colspan="6">Нет данных</td></tr>`;
 
   return `<!doctype html>
 <html><head><meta charset="utf-8"><title>Admin stats — Article Quality Checker</title>
@@ -129,7 +135,7 @@ function statsPage(logs) {
 
   <h2>Последние прогоны (до 200)</h2>
   <table>
-    <thead><tr><th>Дата/время</th><th>Имя</th><th>Язык</th><th>Файл</th><th>Токены</th></tr></thead>
+    <thead><tr><th>Дата/время</th><th>Имя</th><th>Язык</th><th>Файл</th><th>HVA</th><th>Токены</th></tr></thead>
     <tbody>${recentRows}</tbody>
   </table>
 </body></html>`;
