@@ -1,7 +1,10 @@
 import logo from "../assets/bitrix24-logo.png";
+import { getUsername } from "../api.js";
 import { LANGS, BLUE, DARK, BRAND_FONT, BRAND_FONT_WEIGHT } from "../constants.js";
 
 export default function Header({ activeLang, onLangChange, t }) {
+  const isAdmin = getUsername().toLowerCase() === "admin";
+
   return (
     <div
       style={{
@@ -23,26 +26,38 @@ export default function Header({ activeLang, onLangChange, t }) {
           <div style={{ fontSize: 11, color: "#888" }}>{t.tagline}</div>
         </div>
       </div>
-      <div style={{ display: "flex", gap: 5, flexWrap: "wrap", justifyContent: "flex-end" }}>
-        {LANGS.map((l) => (
-          <span
-            key={l}
-            onClick={() => onLangChange(l)}
-            style={{
-              fontSize: 11,
-              padding: "3px 9px",
-              borderRadius: 20,
-              cursor: "pointer",
-              border: activeLang === l ? `1px solid ${BLUE}` : "1px solid #e0e0e0",
-              color: activeLang === l ? "#fff" : "#555",
-              background: activeLang === l ? BLUE : "#fafafa",
-              fontWeight: activeLang === l ? 600 : 400,
-              transition: "all 0.15s",
-            }}
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+        {isAdmin && (
+          <a
+            href="/admin/stats"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ fontSize: 10, color: "#aaa", textDecoration: "none" }}
           >
-            {l}
-          </span>
-        ))}
+            Admin
+          </a>
+        )}
+        <div style={{ display: "flex", gap: 5, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          {LANGS.map((l) => (
+            <span
+              key={l}
+              onClick={() => onLangChange(l)}
+              style={{
+                fontSize: 11,
+                padding: "3px 9px",
+                borderRadius: 20,
+                cursor: "pointer",
+                border: activeLang === l ? `1px solid ${BLUE}` : "1px solid #e0e0e0",
+                color: activeLang === l ? "#fff" : "#555",
+                background: activeLang === l ? BLUE : "#fafafa",
+                fontWeight: activeLang === l ? 600 : 400,
+                transition: "all 0.15s",
+              }}
+            >
+              {l}
+            </span>
+          ))}
+        </div>
       </div>
     </div>
   );

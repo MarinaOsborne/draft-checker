@@ -13,7 +13,7 @@ export function clearPin() {
   sessionStorage.removeItem(PIN_STORAGE_KEY);
 }
 
-function getUsername() {
+export function getUsername() {
   return sessionStorage.getItem(USERNAME_STORAGE_KEY) || "";
 }
 
