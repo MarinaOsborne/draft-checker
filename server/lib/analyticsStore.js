@@ -47,6 +47,7 @@ export function logAnalysis({
   finalScore,
   draftScoreReasoning,
   finalScoreReasoning,
+  runNumber,
   hva,
   topEdits,
 }) {
@@ -66,6 +67,10 @@ export function logAnalysis({
       // слова") прямо с /admin/stats, без доступа к файлам/логам сервера.
       draftScoreReasoning: draftScoreReasoning || "",
       finalScoreReasoning: finalScoreReasoning || "",
+      // Номер попытки для пары язык+файл (значение incrementRuns на момент
+      // этого прогона) — нужен, чтобы в статистике по пользователю агрегировать
+      // только по последнему прогону на файл, а не по всем черновым попыткам.
+      runNumber: Number.isFinite(runNumber) ? runNumber : null,
       hva: hva || null, // весь объект human_value_added как есть
       topEdits: Array.isArray(topEdits) ? topEdits : [], // top_edits как есть
     };

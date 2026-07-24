@@ -70,6 +70,13 @@ router.post("/analyze", requirePin, async (req, res) => {
       draftLinks: Array.isArray(draftLinks) ? draftLinks : [],
       finalLinks: Array.isArray(finalLinks) ? finalLinks : [],
     });
+    if (clientDisconnected) {
+      console.warn("Клиент отключился до получения ответа — прогон не списан.");
+      return;
+    }
+    const runsCount = await incrementRuns(language, finalFilename);
+    const monthlyRunsCount = await incrementMonthlyRuns();
+
     try {
       await saveAnalysisRecord({
         timestamp: new Date().toISOString(),
@@ -87,6 +94,7 @@ router.post("/analyze", requirePin, async (req, res) => {
         // числе — см. жалобу "+14 при изменении одного слова".
         draftScoreReasoning: analysis.ai_draft_quality_reasoning || "",
         finalScoreReasoning: analysis.final_article_quality_reasoning || "",
+        runNumber: runsCount,
         hva: {
           stats: analysis.human_value_added.statistics_added,
           examples: analysis.human_value_added.real_world_examples_added,
@@ -102,12 +110,6 @@ router.post("/analyze", requirePin, async (req, res) => {
       console.error("Не удалось сохранить запись в data/analysis-log.jsonl:", e);
     }
 
-    if (clientDisconnected) {
-      console.warn("Клиент отключился до получения ответа — прогон не списан.");
-      return;
-    }
-    const runsCount = await incrementRuns(language, finalFilename);
-    const monthlyRunsCount = await incrementMonthlyRuns();
     await logAnalysis({
       username,
       language,
@@ -118,6 +120,7 @@ router.post("/analyze", requirePin, async (req, res) => {
       finalScore: analysis.final_article_quality,
       draftScoreReasoning: analysis.ai_draft_quality_reasoning,
       finalScoreReasoning: analysis.final_article_quality_reasoning,
+      runNumber: runsCount,
       hva: analysis.human_value_added,
       topEdits: analysis.top_edits,
     });

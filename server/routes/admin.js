@@ -51,29 +51,60 @@ function formatDelta(delta) {
   return delta > 0 ? `+${delta}` : `${delta}`;
 }
 
+// Прогонов 2/3 на один и тот же файл — это черновые попытки редактора, а не
+// отдельные статьи; качество (score/delta/ready) должно оцениваться по
+// последней попытке на файл, иначе правки "довели до готовности за 3
+// прогона" размывают среднее так, как будто все 3 — окончательный результат.
+function runNumberOf(entry) {
+  return Number.isFinite(entry.runNumber) ? entry.runNumber : 1;
+}
+
+function lastAttemptPerFile(logs) {
+  const latest = new Map();
+  for (const entry of logs) {
+    const key = `${entry.username}::${entry.language}::${entry.filename}`;
+    const prev = latest.get(key);
+    if (!prev || runNumberOf(entry) >= runNumberOf(prev)) {
+      latest.set(key, entry);
+    }
+  }
+  return [...latest.values()];
+}
+
 function statsPage(logs) {
   const byUser = new Map();
   let totalTokens = 0;
-  for (const entry of logs) {
-    const key = entry.username || "unknown";
+
+  function getUser(key, timestamp) {
     if (!byUser.has(key)) {
       byUser.set(key, {
         count: 0,
         tokens: 0,
-        last: entry.timestamp,
+        last: timestamp,
         readyCount: 0,
+        lastAttemptCount: 0,
         finalScoreSum: 0,
         finalScoreCount: 0,
         deltaSum: 0,
         deltaCount: 0,
       });
     }
-    const u = byUser.get(key);
+    return byUser.get(key);
+  }
+
+  for (const entry of logs) {
+    const u = getUser(entry.username || "unknown", entry.timestamp);
     u.count += 1;
     u.tokens += Number(entry.tokens) || 0;
     if (entry.timestamp > u.last) u.last = entry.timestamp;
     totalTokens += Number(entry.tokens) || 0;
+  }
 
+  // Метрики качества (Final Score / HVA / Ready %) — только по последней
+  // попытке на каждый файл, а не по всем черновым прогонам подряд.
+  for (const entry of lastAttemptPerFile(logs)) {
+    const u = getUser(entry.username || "unknown", entry.timestamp);
+    u.lastAttemptCount += 1;
     if (entry.verdict === "ready") u.readyCount += 1;
 
     if (Number.isFinite(entry.finalScore)) {
@@ -95,7 +126,7 @@ function statsPage(logs) {
         const avgFinalScore = u.finalScoreCount > 0 ? (u.finalScoreSum / u.finalScoreCount).toFixed(1) : "—";
         const avgDeltaValue = u.deltaCount > 0 ? Number((u.deltaSum / u.deltaCount).toFixed(1)) : null;
         const avgDelta = avgDeltaValue === null ? "—" : avgDeltaValue > 0 ? `+${avgDeltaValue}` : `${avgDeltaValue}`;
-        const readyRate = u.count > 0 ? Math.round((u.readyCount / u.count) * 100) : 0;
+        const readyRate = u.lastAttemptCount > 0 ? Math.round((u.readyCount / u.lastAttemptCount) * 100) : 0;
         return `<tr><td>${escapeHtml(name)}</td><td>${u.count}</td><td>${u.tokens}</td><td>${avgFinalScore}</td><td>${avgDelta}</td><td>${readyRate}%</td><td>${escapeHtml(u.last)}</td></tr>`;
       })
       .join("") || `<tr><td colspan="7">Нет данных</td></tr>`;
