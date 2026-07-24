@@ -53,7 +53,7 @@ Calibration — DO NOT default to a "safe" middle number regardless of content. 
 - 71-90: specific, concrete, clearly edited by someone who knows the product and audience
 - 91-100: exceptional, publication-ready with no notable weaknesses
 
-Before writing the score, write one short sentence (ai_draft_quality_reasoning / final_article_quality_reasoning) citing something SPECIFIC from that version of the text that justifies the number — not a generic statement that could apply to any draft. Two different drafts should essentially never land on the same score unless they are genuinely, specifically comparable in quality.
+Before writing the score, write one short sentence (ai_draft_quality_reasoning / final_article_quality_reasoning) citing something SPECIFIC from that version of the text that justifies the number — not a generic statement that could apply to any draft. Two different drafts should essentially never land on the same score unless they are genuinely, specifically comparable in quality. These two reasoning fields are REQUIRED and MUST NOT be an empty string or omitted — every response must include a real, non-empty justification for both scores, with no exceptions.
 
 ## Human value added detail (supporting metrics, shown below the main score — not the primary metric)
 

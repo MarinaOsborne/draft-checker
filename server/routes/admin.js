@@ -110,7 +110,20 @@ function statsPage(logs) {
           e.draftScoreReasoning ? `Draft (${e.draftScore ?? "—"}): ${e.draftScoreReasoning}` : "",
           e.finalScoreReasoning ? `Final (${e.finalScore ?? "—"}): ${e.finalScoreReasoning}` : "",
         ].filter(Boolean);
-        const tooltip = reasoningLines.length > 0 ? ` title="${escapeHtml(reasoningLines.join("\n"))}"` : "";
+        // Явный текст на случай, когда модель НЕ прислала обоснование (обе
+        // строки пустые) — раньше в этом случае title-атрибут просто не
+        // появлялся, и было неотличимо от "запись сделана до этого фикса".
+        // has(e, "draftScoreReasoning") отличает "поля вообще нет в записи"
+        // (старый прогон, до фикса) от "поле есть, но модель прислала пустую
+        // строку" (сам прогон уже новый, но модель не выполнила инструкцию).
+        const hasReasoningField = Object.prototype.hasOwnProperty.call(e, "draftScoreReasoning");
+        const tooltipText =
+          reasoningLines.length > 0
+            ? reasoningLines.join("\n")
+            : hasReasoningField
+              ? "Модель не вернула обоснование для этого прогона"
+              : "";
+        const tooltip = tooltipText ? ` title="${escapeHtml(tooltipText)}"` : "";
         return `<tr><td>${escapeHtml(e.timestamp)}</td><td>${escapeHtml(e.username)}</td><td>${escapeHtml(e.language)}</td><td>${escapeHtml(e.filename)}</td><td${tooltip} style="cursor:${tooltip ? "help" : "default"}">${formatDelta(delta)}</td><td>${e.tokens ?? "—"}</td></tr>`;
       })
       .join("") || `<tr><td colspan="6">Нет данных</td></tr>`;
