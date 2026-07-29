@@ -74,6 +74,11 @@ VIBE_AI_BASE_URL="${VIBE_AI_BASE_URL:-https://vibecode.bitrix24.tech/v1/ai}"
 # Опционален: без него /admin/stats просто отвечает 500 и остаётся выключен
 # (не открывается без пароля и не падает на дефолтный).
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-}"
+# Опциональны: без них /api/articles отвечает 502 и выбор статьи по Title
+# недоступен — см. server/lib/googleClient.js и .env.example.
+GOOGLE_SERVICE_ACCOUNT_KEY_BASE64="${GOOGLE_SERVICE_ACCOUNT_KEY_BASE64:-}"
+GOOGLE_SHEET_ID="${GOOGLE_SHEET_ID:-}"
+GOOGLE_SHEET_RANGE="${GOOGLE_SHEET_RANGE:-}"
 
 api()   { curl -s -H "X-Api-Key: $VIBE_KEY" "$@"; }
 # вытащить строковое поле из JSON-ответа (чтобы не зависеть от jq)
@@ -103,6 +108,9 @@ VIBE_KEY=$VIBE_KEY
 VIBE_AI_MODEL=$VIBE_AI_MODEL
 VIBE_AI_BASE_URL=$VIBE_AI_BASE_URL
 ADMIN_PASSWORD=$ADMIN_PASSWORD
+GOOGLE_SERVICE_ACCOUNT_KEY_BASE64=$GOOGLE_SERVICE_ACCOUNT_KEY_BASE64
+GOOGLE_SHEET_ID=$GOOGLE_SHEET_ID
+GOOGLE_SHEET_RANGE=$GOOGLE_SHEET_RANGE
 EOF
 ( cd "$WORK/stage" && npm ci --omit=dev --ignore-scripts >/dev/null ) || { echo "❌ npm ci упал"; exit 1; }
 tar -czf "$WORK/app.tgz" -C "$WORK/stage" .

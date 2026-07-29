@@ -1,14 +1,23 @@
 import { useEffect, useState } from "react";
 import PinScreen from "./components/PinScreen.jsx";
 import Header from "./components/Header.jsx";
-import UploadZone from "./components/UploadZone.jsx";
+import ArticlePicker from "./components/ArticlePicker.jsx";
 import RunCounter from "./components/RunCounter.jsx";
 import ScoreCard from "./components/ScoreCard.jsx";
 import NotesList from "./components/NotesList.jsx";
 import TopEdits from "./components/TopEdits.jsx";
 import UnnecessaryRewrites from "./components/UnnecessaryRewrites.jsx";
 import DiffView from "./components/DiffView.jsx";
-import { parseDocx, getRunCount, resetRunCount, analyzeArticle, getMonthlyStatus, clearPin, isLoggedIn } from "./api.js";
+import {
+  getArticles,
+  getArticleContent,
+  getRunCount,
+  resetRunCount,
+  analyzeArticle,
+  getMonthlyStatus,
+  clearPin,
+  isLoggedIn,
+} from "./api.js";
 import { LANGS, MAX_RUNS, MAX_MONTHLY_RUNS, DARK } from "./constants.js";
 import { getTranslations, formatDate } from "./i18n.js";
 
@@ -18,10 +27,13 @@ export default function App() {
   const [authenticated, setAuthenticated] = useState(() => isLoggedIn());
   const [activeLang, setActiveLang] = useState(LANGS[0]);
   const t = getTranslations(activeLang);
+  const [articles, setArticles] = useState([]);
+  const [selectedArticleId, setSelectedArticleId] = useState(null);
+  const [loadingList, setLoadingList] = useState(false);
+  const [loadingContent, setLoadingContent] = useState(false);
   const [draft, setDraft] = useState(EMPTY_FILE);
   const [final, setFinal] = useState(EMPTY_FILE);
   const [runsCount, setRunsCount] = useState(0);
-  const [uploading, setUploading] = useState(null); // "draft" | "final" | null
   const [analyzing, setAnalyzing] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [result, setResult] = useState(null);
@@ -46,6 +58,16 @@ export default function App() {
   }, [authenticated]);
 
   useEffect(() => {
+    if (!authenticated) return;
+    setLoadingList(true);
+    getArticles()
+      .then((r) => setArticles(r.articles))
+      .catch((e) => handleAuthError(e))
+      .finally(() => setLoadingList(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authenticated]);
+
+  useEffect(() => {
     if (!authenticated || !final.file) {
       setRunsCount(0);
       return;
@@ -57,16 +79,14 @@ export default function App() {
   }, [authenticated, activeLang, final.file]);
 
   const ERROR_CODE_KEYS = {
-    no_file: "noFile",
-    bad_format: "badFormat",
-    parse_failed: "parseFailed",
     bad_request: "badRequest",
     analyze_failed: "analyzeFailed",
     ai_unavailable: "aiUnavailable",
     server_unavailable: "serverUnavailable",
-    file_too_large: "fileTooLarge",
-    upload_failed: "uploadFailed",
     internal_error: "internalError",
+    sheet_unavailable: "sheetUnavailable",
+    docs_unavailable: "docsUnavailable",
+    article_not_found: "articleNotFound",
   };
 
   function handleAuthError(e) {
@@ -79,19 +99,23 @@ export default function App() {
     setError(key ? t.errors[key] : e.message);
   }
 
-  async function handleFileSelect(slot, file) {
+  async function handleArticleSelect(articleId) {
     setError(null);
     setShowResult(false);
-    setUploading(slot);
+    setResult(null);
+    setSelectedArticleId(articleId);
+    setLoadingContent(true);
     try {
-      const parsed = await parseDocx(file);
-      const entry = { file, text: parsed.text, wordCount: parsed.wordCount, links: parsed.links || [] };
-      if (slot === "draft") setDraft(entry);
-      else setFinal(entry);
+      const content = await getArticleContent(articleId);
+      const fileRef = { name: content.title };
+      setDraft({ file: fileRef, text: content.draft.text, wordCount: content.draft.wordCount, links: content.draft.links });
+      setFinal({ file: fileRef, text: content.final.text, wordCount: content.final.wordCount, links: content.final.links });
     } catch (e) {
+      setDraft(EMPTY_FILE);
+      setFinal(EMPTY_FILE);
       handleAuthError(e);
     } finally {
-      setUploading(null);
+      setLoadingContent(false);
     }
   }
 
@@ -181,19 +205,16 @@ export default function App() {
         </div>
       )}
 
-      <UploadZone
+      <ArticlePicker
+        articles={articles}
+        selectedId={selectedArticleId}
+        onSelect={handleArticleSelect}
         draft={draft}
         final={final}
-        onDraftSelect={(f) => handleFileSelect("draft", f)}
-        onFinalSelect={(f) => handleFileSelect("final", f)}
+        loadingList={loadingList}
+        loadingContent={loadingContent}
         t={t}
       />
-
-      {uploading && (
-        <div style={{ padding: "0 20px", marginBottom: 12, fontSize: 12, color: "#aaa" }}>
-          {t.parsing.label(uploading === "draft" ? t.parsing.draft : t.parsing.final)}
-        </div>
-      )}
 
       {error && (
         <div

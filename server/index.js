@@ -5,6 +5,7 @@ import "dotenv/config";
 
 import pinRoutes from "./routes/pin.js";
 import parseRoutes from "./routes/parse.js";
+import articlesRoutes from "./routes/articles.js";
 import runsRoutes from "./routes/runs.js";
 import analyzeRoutes from "./routes/analyze.js";
 import healthRoutes from "./routes/health.js";
@@ -20,6 +21,7 @@ app.use(express.urlencoded({ extended: false }));
 
 app.use("/api", pinRoutes);
 app.use("/api", parseRoutes);
+app.use("/api", articlesRoutes);
 app.use("/api", runsRoutes);
 app.use("/api", analyzeRoutes);
 app.use("/api", healthRoutes);

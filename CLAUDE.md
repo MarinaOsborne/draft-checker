@@ -5,13 +5,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What this is
 
 "Vissarion" (package name `draft-checker`) — an internal editorial review tool
-for Bitrix24's multilingual content team. An editor uploads two `.docx`
-files — the AI-generated draft and their edited final version — and the app
-scores both holistically, breaks down 7 quality criteria + 5 "AI search
-readiness" criteria, flags unnecessary rewrites, and renders a word-level
-diff, all via a single LLM call to VibeCode's AI Router
-(`bitrix/bitrixgpt-5.5`). It's deployed as a single Node/Express process on
-the VibeCode platform (Galaxy container), not a static site.
+for Bitrix24's multilingual content team. An editor picks an article by title
+from a dropdown (backed by a Google Sheet that lists every article, each row
+linking to its AI-draft and edited-final Google Docs — see "Google Docs
+integration" below), and the app scores both holistically, breaks down 7
+quality criteria + 5 "AI search readiness" criteria, flags unnecessary
+rewrites, and renders a word-level diff, all via a single LLM call to
+VibeCode's AI Router (`bitrix/bitrixgpt-5.5`). It's deployed as a single
+Node/Express process on the VibeCode platform (Galaxy container), not a
+static site.
 
 ## Commands
 
@@ -31,7 +33,7 @@ with `curl` against a real `node server/index.js` pointed at either the real
 ## Architecture
 
 **One process serves both halves.** `server/index.js` mounts every API route
-under `/api` (`pin`, `parse`, `runs`, `analyze`, `health`), mounts
+under `/api` (`pin`, `parse`, `articles`, `runs`, `analyze`, `health`), mounts
 `server/routes/admin.js` unprefixed (it owns `/admin/stats`), then serves
 `dist/` as static files and falls back to `dist/index.html` for everything
 else (SPA routing). In dev, Vite proxies `/api` to this same Express server
@@ -46,16 +48,50 @@ under Node's header parsing), used purely to attribute runs in the stats log.
 `getUsername().toLowerCase() === "admin"` is what unlocks the "Admin" link
 and reset button in the UI — it is not a real permission system.
 
-**`.docx` → plain text → LLM, not `.docx` → LLM.** `server/routes/parse.js`
-runs `mammoth.extractRawText()` for the text the UI diffs and scores, and
-*separately* `mammoth.convertToHtml()` + cheerio to pull out real `<a href>`
-URLs (`extractLinks`) because `extractRawText()` silently drops hyperlinks
-and keeps only the anchor text. Both channels (`draftText`/`finalText` and
-`draftLinks`/`finalLinks`) are sent to the model, but **`DiffView` only ever
-receives the plain text** — a link-only edit (e.g. turning existing prose
-into a hyperlink to a Bitrix24 feature page) is real signal to the model but
-invisible in the diff UI. Keep this in mind before assuming a scoring jump
-with "no visible diff" is a bug.
+**Two independent text-ingestion paths feed the same shape into `/api/analyze`.**
+Both ultimately produce `{ text, wordCount, links }` per side (draft/final) —
+`links` because plain-text extraction always drops hyperlinks and keeps only
+the anchor text, so both paths recover the real URLs through a second,
+separate channel:
+- `.docx` upload (`server/routes/parse.js`, still present server-side but no
+  longer wired into the UI — see below): `mammoth.extractRawText()` for the
+  text, *separately* `mammoth.convertToHtml()` + cheerio to pull out real
+  `<a href>` URLs (`extractLinks`).
+- Google Docs (`server/lib/googleClient.js::getDocContent`, what the UI
+  actually uses today — see "Google Docs integration" below): a single Docs
+  API `documents.get` call already exposes both the text (`textRun.content`)
+  and any hyperlink (`textRun.textStyle.link.url`) in the same structure, so
+  one walk of `document.body.content` produces both.
+
+Both channels (`draftText`/`finalText` and `draftLinks`/`finalLinks`) are
+sent to the model, but **`DiffView` only ever receives the plain text** — a
+link-only edit (e.g. turning existing prose into a hyperlink to a Bitrix24
+feature page) is real signal to the model but invisible in the diff UI. Keep
+this in mind before assuming a scoring jump with "no visible diff" is a bug.
+
+**Google Docs integration — how an editor picks an article.** Editors no
+longer upload files by hand; `ArticlePicker` (`src/components/ArticlePicker.jsx`)
+shows a `<select>` of article titles fetched from `GET /api/articles`, backed
+by a Google Sheet (`GOOGLE_SHEET_ID`) with one row per article and header
+columns `id`, `Title`, `Link to content` (AI draft doc, read-only), `draft`
+(editor's doc) — `server/lib/googleClient.js::listArticles` reads the header
+row to find these columns by name (not fixed letters) so reordering columns
+in the sheet doesn't break it. Choosing a title calls
+`GET /api/articles/:id/content`, which looks the row up again, extracts both
+Google Doc IDs from their share-link URLs (`extractDocId`), fetches each via
+the Docs API, and returns `{ draft: {text, wordCount, links}, final: {...} }` —
+from there it's fed into the *same* `handleRun`/`/api/analyze` pipeline
+described below, using the article's `title` as the `finalFilename` run-limit
+key (`server/lib/store.js` keys are opaque strings, so a title works exactly
+like a filename did). **Auth is one read-only service account**
+(`GOOGLE_SERVICE_ACCOUNT_KEY_BASE64`, scopes `spreadsheets.readonly` +
+`documents.readonly` — no Drive scope, since the Docs API can fetch any
+document ID it's been granted Viewer access to directly), not per-editor
+OAuth — the sheet AND every linked doc must each be individually shared with
+that service account's `client_email`, or `/api/articles*` 502s
+(`sheet_unavailable`/`docs_unavailable`). Nothing is ever written back to the
+sheet or the docs — the analysis result lives only in this app, same as
+before.
 
 **Scoring is holistic per-version, not diff-sized.** The single LLM call in
 `server/lib/vibeAiClient.js` scores `ai_draft_quality` and
@@ -170,3 +206,26 @@ sandbox policy, not a transient failure) — mocks are the only way to test the
 analyze pipeline from here, so anything that depends on the *real* model's
 actual behavior (e.g., whether it reliably fills in a reasoning field) can
 only be confirmed by the user on the deployed app, never assumed from a mock.
+
+**Testing `server/lib/googleClient.js` is the opposite situation** — outbound
+network access to `sheets.googleapis.com`/`docs.googleapis.com`/
+`oauth2.googleapis.com` IS available here (confirmed with plain `curl`), but
+there's no real service-account key, sheet, or shared doc to authenticate
+with from this environment, so a genuine happy-path call can't be made
+either way. That's why the row→article and Docs-JSON→text/links logic is
+split into pure, directly-importable functions (`parseArticleRows`,
+`parseDocument`, `extractDocId`) separate from the `fetch`-performing
+`listArticles`/`getDocContent` — they can be unit-tested against a
+hand-built fake Sheets/Docs API response without any network or credentials,
+the same way `extractLinks(html)` in `parse.js` is already a standalone,
+directly-testable function. Confirmed working during development: (1) the
+pure functions against synthetic API payloads (column reordering, table
+cells, multi-run hyperlink text accumulation, same-URL-non-contiguous
+dedup); (2) the real `/api/articles*` routes against a live but
+unconfigured/invalid service account — Google's real OAuth endpoint
+correctly rejects a fake account (`invalid_grant`) over the network, and the
+route still 502s cleanly (`sheet_unavailable`/`docs_unavailable`) instead of
+crashing the process. What's NOT been confirmed from here: a real successful
+sheet read or doc fetch — that only the user can verify once real
+`GOOGLE_SERVICE_ACCOUNT_KEY_BASE64`/`GOOGLE_SHEET_ID` are set and the sheet
++ every linked doc are actually shared with the service account.
