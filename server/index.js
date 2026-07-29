@@ -9,6 +9,7 @@ import articlesRoutes from "./routes/articles.js";
 import runsRoutes from "./routes/runs.js";
 import analyzeRoutes from "./routes/analyze.js";
 import healthRoutes from "./routes/health.js";
+import pingTestRoutes from "./routes/pingTest.js";
 import adminRoutes from "./routes/admin.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -25,6 +26,7 @@ app.use("/api", articlesRoutes);
 app.use("/api", runsRoutes);
 app.use("/api", analyzeRoutes);
 app.use("/api", healthRoutes);
+app.use("/api", pingTestRoutes);
 app.use(adminRoutes);
 
 app.use(express.static(DIST_DIR));
