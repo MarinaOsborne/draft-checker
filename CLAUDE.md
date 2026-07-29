@@ -223,6 +223,19 @@ already have from the user into it. `deploy/.vibe-server` (gitignored) holds
 the existing app id so a redeploy updates in place instead of creating a
 duplicate app; without it the script defaults to creating a new one.
 
+**`GET /api/health` reports which commit is actually live** (`gitCommit`,
+`server/lib/version.js`) — added after a real incident where a brand-new
+route (`/api/articles`) consistently 502/503'd in production while older
+routes worked fine, and it was impossible to rule out "the running container
+predates this route" without this. The deploy archive never includes `.git`
+(only `server/` + `dist/` + `package.json`/`package-lock.json` + a generated
+`.env` are copied into it), so `git rev-parse` can't run at runtime in
+production — `deploy/deploy.sh` instead computes the hash once at package
+time (while still inside the real repo) and bakes it into the archive's
+`.env` as `GIT_COMMIT`. `version.js`'s own `git rev-parse HEAD` fallback only
+ever fires in local dev (`npm run dev`/`npm start`), where `.git` actually
+exists and `GIT_COMMIT` isn't set.
+
 The AI Router's exact base path/auth header in `server/lib/vibeAiClient.js`
 (`VIBE_AI_BASE_URL`, defaults to `https://vibecode.bitrix24.tech/v1/ai`) was
 never verified against real platform docs (see the `⚠️ ПРЕДПОЛОЖЕНИЕ`

@@ -79,6 +79,12 @@ ADMIN_PASSWORD="${ADMIN_PASSWORD:-}"
 GOOGLE_SERVICE_ACCOUNT_KEY_BASE64="${GOOGLE_SERVICE_ACCOUNT_KEY_BASE64:-}"
 GOOGLE_SHEET_ID="${GOOGLE_SHEET_ID:-}"
 GOOGLE_SHEET_RANGE="${GOOGLE_SHEET_RANGE:-}"
+# Стамп коммита, который реально паковался — .git не входит в архив (см. ниже),
+# поэтому server/lib/version.js не может вызвать `git rev-parse` в рантайме на
+# проде; здесь мы всё ещё внутри репозитория, так что делаем это один раз тут
+# и кладём готовый хэш в .env архива. Отвечает на вопрос "какой коммит сейчас
+# задеплоен?" через GET /api/health без доступа к консоли платформы.
+GIT_COMMIT="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || echo unknown)"
 
 api()   { curl -s -H "X-Api-Key: $VIBE_KEY" "$@"; }
 # вытащить строковое поле из JSON-ответа (чтобы не зависеть от jq)
@@ -111,6 +117,7 @@ ADMIN_PASSWORD=$ADMIN_PASSWORD
 GOOGLE_SERVICE_ACCOUNT_KEY_BASE64=$GOOGLE_SERVICE_ACCOUNT_KEY_BASE64
 GOOGLE_SHEET_ID=$GOOGLE_SHEET_ID
 GOOGLE_SHEET_RANGE=$GOOGLE_SHEET_RANGE
+GIT_COMMIT=$GIT_COMMIT
 EOF
 ( cd "$WORK/stage" && npm ci --omit=dev --ignore-scripts >/dev/null ) || { echo "❌ npm ci упал"; exit 1; }
 tar -czf "$WORK/app.tgz" -C "$WORK/stage" .
