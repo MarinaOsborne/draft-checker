@@ -38,7 +38,14 @@ router.get("/article-list", requirePin, async (req, res) => {
     res.json({ articles: articles.map(({ id, title }) => ({ id, title })) });
   } catch (e) {
     console.error("Не удалось получить список статей из Google Таблицы:", e.message);
-    res.status(500).json({ error: "Не удалось получить список статей из Google Таблицы", code: "sheet_unavailable" });
+    // TEMPORARY DEBUG — remove `debug` field once the real cause behind
+    // sheet_unavailable is confirmed; no server-side log access in
+    // production, so this is the only way to see e.message right now.
+    res.status(500).json({
+      error: "Не удалось получить список статей из Google Таблицы",
+      code: "sheet_unavailable",
+      debug: e.message,
+    });
   }
 });
 
