@@ -7,7 +7,7 @@ const router = Router();
 
 // Whole-route deadline — deliberately separate from GOOGLE_API_TIMEOUT_MS in
 // googleClient.js, which only bounds one individual Google API call at a
-// time. GET /articles/:id/content below makes two such calls *sequentially*
+// time. GET /article-list/:id/content below makes two such calls *sequentially*
 // (find the row, then fetch the two docs), so bounding each call alone still
 // let worst-case total time add up past the VibeCode gateway's own (~10s,
 // per production observation) cutoff — the client would see the gateway's
@@ -16,7 +16,7 @@ const router = Router();
 // API calls happen inside or whether they're sequential or parallel.
 const ROUTE_TIMEOUT_MS = 9000;
 
-router.get("/articles", requirePin, async (req, res) => {
+router.get("/article-list", requirePin, async (req, res) => {
   try {
     const articles = await withTimeout(
       listArticles(),
@@ -30,7 +30,7 @@ router.get("/articles", requirePin, async (req, res) => {
   }
 });
 
-router.get("/articles/:id/content", requirePin, async (req, res) => {
+router.get("/article-list/:id/content", requirePin, async (req, res) => {
   const { id } = req.params;
   // Tracks which phase was in flight if the outer deadline fires, so a
   // timeout during either phase still gets the same specific error code

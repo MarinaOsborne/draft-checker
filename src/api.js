@@ -65,11 +65,11 @@ export async function verifyPin(pin) {
 }
 
 export async function getArticles() {
-  return request("/api/articles");
+  return request("/api/article-list");
 }
 
 export async function getArticleContent(id) {
-  return request(`/api/articles/${encodeURIComponent(id)}/content`);
+  return request(`/api/article-list/${encodeURIComponent(id)}/content`);
 }
 
 export async function getRunCount(language, filename) {

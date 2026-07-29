@@ -71,13 +71,13 @@ this in mind before assuming a scoring jump with "no visible diff" is a bug.
 
 **Google Docs integration — how an editor picks an article.** Editors no
 longer upload files by hand; `ArticlePicker` (`src/components/ArticlePicker.jsx`)
-shows a `<select>` of article titles fetched from `GET /api/articles`, backed
-by a Google Sheet (`GOOGLE_SHEET_ID`) with one row per article and header
-columns `id`, `Title`, `Link to content` (AI draft doc, read-only), `draft`
-(editor's doc) — `server/lib/googleClient.js::listArticles` reads the header
-row to find these columns by name (not fixed letters) so reordering columns
-in the sheet doesn't break it. Choosing a title calls
-`GET /api/articles/:id/content`, which looks the row up again, extracts both
+shows a `<select>` of article titles fetched from `GET /api/article-list`,
+backed by a Google Sheet (`GOOGLE_SHEET_ID`) with one row per article and
+header columns `id`, `Title`, `Link to content` (AI draft doc, read-only),
+`draft` (editor's doc) — `server/lib/googleClient.js::listArticles` reads
+the header row to find these columns by name (not fixed letters) so
+reordering columns in the sheet doesn't break it. Choosing a title calls
+`GET /api/article-list/:id/content`, which looks the row up again, extracts both
 Google Doc IDs from their share-link URLs (`extractDocId`), fetches each via
 the Docs API, and returns `{ draft: {text, wordCount, links}, final: {...} }` —
 from there it's fed into the *same* `handleRun`/`/api/analyze` pipeline
@@ -88,10 +88,22 @@ like a filename did). **Auth is one read-only service account**
 `documents.readonly` — no Drive scope, since the Docs API can fetch any
 document ID it's been granted Viewer access to directly), not per-editor
 OAuth — the sheet AND every linked doc must each be individually shared with
-that service account's `client_email`, or `/api/articles*` 502s
+that service account's `client_email`, or `/api/article-list*` 502s
 (`sheet_unavailable`/`docs_unavailable`). Nothing is ever written back to the
 sheet or the docs — the analysis result lives only in this app, same as
 before.
+
+**Why `/api/article-list` and not the more obvious `/api/articles`** — it
+used to be `/api/articles`, but that exact path started returning a static,
+cached-looking 503 from the platform's own nginx/edge layer in production
+(same unchanging ETag across 15+ minutes, `?nocache=1` didn't bust it) while
+every other route — including a throwaway `/api/ping-test` added
+specifically to test this — kept working fine. The rename to
+`/api/article-list` (backend route + frontend calls in `src/api.js`) was a
+direct, deliberate workaround for that specific stuck path, not a
+naming-taste change — if `/api/articles` starts working again on its own
+some day, that's a sign the platform's cache/edge config finally expired or
+was cleared, not that anything in our code changed.
 
 **Two layers of timeout, because one wasn't enough.** `server/lib/withTimeout.js`
 is a shared `Promise.race`-against-a-timer helper used at two different
@@ -103,13 +115,14 @@ levels:
 - `ROUTE_TIMEOUT_MS` (9s) in `server/routes/articles.js` wraps each route
   handler's *entire* body in a second, outer deadline. This layer exists
   because per-call bounding alone was NOT sufficient: `GET
-  /articles/:id/content` makes two Google API calls *sequentially* (find the
-  row via `listArticles()`, only then fetch both docs), so two individually-
+  /article-list/:id/content` makes two Google API calls *sequentially* (find
+  the row via `listArticles()`, only then fetch both docs), so two individually-
   fast-but-slow-ish calls could still add up past the VibeCode gateway's own
   (~10s, per production observation) cutoff even though neither call
   individually hit its own timeout — confirmed by re-reading the actual code
-  path, not assumed, after a report of `/api/articles` intermittently
-  surfacing the generic "server_unavailable" instead of a specific error. The
+  path, not assumed, after a report of `/api/articles` (this route's name at
+  the time) intermittently surfacing the generic "server_unavailable" instead
+  of a specific error. The
   route wrapper tracks which phase (`"sheet"` vs `"docs"`) was in flight when
   the outer deadline fires, so a timeout during either phase still reports
   the same specific `sheet_unavailable`/`docs_unavailable` code its own
@@ -225,9 +238,10 @@ duplicate app; without it the script defaults to creating a new one.
 
 **`GET /api/health` reports which commit is actually live** (`gitCommit`,
 `server/lib/version.js`) — added after a real incident where a brand-new
-route (`/api/articles`) consistently 502/503'd in production while older
-routes worked fine, and it was impossible to rule out "the running container
-predates this route" without this. The deploy archive never includes `.git`
+route (`/api/articles`, since renamed to `/api/article-list` — see above)
+consistently 502/503'd in production while older routes worked fine, and it
+was impossible to rule out "the running container predates this route"
+without this. The deploy archive never includes `.git`
 (only `server/` + `dist/` + `package.json`/`package-lock.json` + a generated
 `.env` are copied into it), so `git rev-parse` can't run at runtime in
 production — `deploy/deploy.sh` instead computes the hash once at package
@@ -274,7 +288,7 @@ the same way `extractLinks(html)` in `parse.js` is already a standalone,
 directly-testable function. Confirmed working during development: (1) the
 pure functions against synthetic API payloads (column reordering, table
 cells, multi-run hyperlink text accumulation, same-URL-non-contiguous
-dedup); (2) the real `/api/articles*` routes against a live but
+dedup); (2) the real `/api/article-list*` routes against a live but
 unconfigured/invalid service account — Google's real OAuth endpoint
 correctly rejects a fake account (`invalid_grant`) over the network, and the
 route still 502s cleanly (`sheet_unavailable`/`docs_unavailable`) instead of
