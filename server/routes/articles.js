@@ -16,6 +16,18 @@ const router = Router();
 // API calls happen inside or whether they're sequential or parallel.
 const ROUTE_TIMEOUT_MS = 9000;
 
+// Every error response below uses status 500, not 502/503 — confirmed on
+// the deployed app (curl -v) that VibeCode's nginx intercepts responses
+// with status 502 specifically: it rewrites the status to 503 and the
+// Content-Type to text/html, but does NOT actually deliver a body — it
+// keeps the original (correct) Content-Length header from our real
+// response while sending zero bytes of content, so the client sees a
+// truncated transfer (curl: "end of response with N bytes missing")
+// instead of our JSON error. The exact same 500 response (from a
+// malformed-JSON body-parser error) was confirmed to pass through this
+// same nginx completely intact. The frontend (src/api.js) already reads
+// the error `code` from the JSON body, not the raw HTTP status, so this
+// has no effect on user-facing behavior beyond actually delivering the body.
 router.get("/article-list", requirePin, async (req, res) => {
   try {
     const articles = await withTimeout(
@@ -26,7 +38,7 @@ router.get("/article-list", requirePin, async (req, res) => {
     res.json({ articles: articles.map(({ id, title }) => ({ id, title })) });
   } catch (e) {
     console.error("Не удалось получить список статей из Google Таблицы:", e.message);
-    res.status(502).json({ error: "Не удалось получить список статей из Google Таблицы", code: "sheet_unavailable" });
+    res.status(500).json({ error: "Не удалось получить список статей из Google Таблицы", code: "sheet_unavailable" });
   }
 });
 
@@ -60,10 +72,10 @@ router.get("/article-list/:id/content", requirePin, async (req, res) => {
     }
     if (phase === "docs") {
       console.error("Не удалось получить содержимое документов Google Docs:", e.message);
-      return res.status(502).json({ error: "Не удалось получить содержимое документов Google Docs", code: "docs_unavailable" });
+      return res.status(500).json({ error: "Не удалось получить содержимое документов Google Docs", code: "docs_unavailable" });
     }
     console.error("Не удалось получить список статей из Google Таблицы:", e.message);
-    res.status(502).json({ error: "Не удалось получить список статей из Google Таблицы", code: "sheet_unavailable" });
+    res.status(500).json({ error: "Не удалось получить список статей из Google Таблицы", code: "sheet_unavailable" });
   }
 });
 

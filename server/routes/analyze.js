@@ -128,10 +128,17 @@ router.post("/analyze", requirePin, async (req, res) => {
   } catch (e) {
     console.error("AI Router analyze failed:", e.status || "", e.message, e.error || "");
     // Прогон НЕ списывается — increment выше выполняется только при успехе.
+    // Статус намеренно 500, не 502/503 — см. комментарий в articles.js:
+    // на проде подтверждено (curl -v), что VibeCode nginx перехватывает
+    // именно 502 от апстрима (переписывает статус на 503 и обрывает тело,
+    // не досылая заявленный Content-Length), тогда как 500 проходит
+    // насквозь без изменений. Фронтенд всё равно берёт код ошибки из
+    // тела (body.code), а не из HTTP-статуса, так что на поведении для
+    // пользователя это никак не сказывается — только чинит доставку тела.
     if (e.status === 502) {
-      res.status(502).json({ error: "AI Router is not responding", code: "ai_unavailable" });
+      res.status(500).json({ error: "AI Router is not responding", code: "ai_unavailable" });
     } else {
-      res.status(502).json({ error: "Не удалось получить оценку от AI Router VibeCode", code: "analyze_failed" });
+      res.status(500).json({ error: "Не удалось получить оценку от AI Router VibeCode", code: "analyze_failed" });
     }
   }
 });

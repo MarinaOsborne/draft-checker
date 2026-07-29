@@ -88,22 +88,47 @@ like a filename did). **Auth is one read-only service account**
 `documents.readonly` — no Drive scope, since the Docs API can fetch any
 document ID it's been granted Viewer access to directly), not per-editor
 OAuth — the sheet AND every linked doc must each be individually shared with
-that service account's `client_email`, or `/api/article-list*` 502s
-(`sheet_unavailable`/`docs_unavailable`). Nothing is ever written back to the
+that service account's `client_email`, or `/api/article-list*` 500s
+(`sheet_unavailable`/`docs_unavailable` — see below for why 500 and not the
+more conventional 502/503). Nothing is ever written back to the
 sheet or the docs — the analysis result lives only in this app, same as
 before.
 
-**Why `/api/article-list` and not the more obvious `/api/articles`** — it
-used to be `/api/articles`, but that exact path started returning a static,
-cached-looking 503 from the platform's own nginx/edge layer in production
-(same unchanging ETag across 15+ minutes, `?nocache=1` didn't bust it) while
-every other route — including a throwaway `/api/ping-test` added
-specifically to test this — kept working fine. The rename to
-`/api/article-list` (backend route + frontend calls in `src/api.js`) was a
-direct, deliberate workaround for that specific stuck path, not a
-naming-taste change — if `/api/articles` starts working again on its own
-some day, that's a sign the platform's cache/edge config finally expired or
-was cleared, not that anything in our code changed.
+**Why `/api/article-list` and not the more obvious `/api/articles`, and the
+real story behind it** — it used to be `/api/articles`, renamed after that
+exact path started returning a static-looking 503 in production (same
+unchanging ETag across 15+ minutes, `?nocache=1` didn't bust it) while every
+other route — including a throwaway `/api/ping-test` added specifically to
+test this — kept working fine. The rename was tried as a first guess (stuck
+edge cache keyed on the literal path string) and turned out to be a red
+herring: **the actual cause, confirmed via `curl -v` against the live app,
+is that VibeCode's nginx intercepts any upstream response with HTTP status
+502 specifically** — it rewrites the status to 503 and the Content-Type to
+`text/html`, but does NOT deliver a body, while still declaring the
+*original* (correct) `Content-Length` from our real response — so the
+client sees a truncated transfer (`curl: (18) end of response with N bytes
+missing`) instead of our actual JSON error. This was proven, not assumed: a
+request that made `server/routes/analyze.js` return its own 500 (malformed
+JSON body) passed through the same nginx completely intact — identical
+`ETag`/`Content-Length` to a local reproduction of the same error — while an
+otherwise-identical 502 response got mangled exactly as described. Since the
+error body is deterministic (same Google-auth failure → same JSON → same
+weak ETag every time), this alone fully explains the original "unchanging
+ETag for 15+ minutes" symptom, with no caching involved anywhere. **The
+actual fix was switching every route that used to answer with status 502
+(`server/routes/articles.js`'s `sheet_unavailable`/`docs_unavailable`,
+`server/routes/analyze.js`'s `ai_unavailable`/`analyze_failed`) to 500
+instead** — safe because `src/api.js`'s `request()` already reads the error
+`code` from the parsed JSON body first, falling back to the raw HTTP status
+only when `body.code` is absent, so this doesn't change any user-facing
+behavior, only whether the body actually arrives. The `/api/article-list`
+rename turned out to be unnecessary — the original `/api/articles` also
+returned 502 on this same error path, so it would have hit the exact same
+nginx interception regardless of its name; there was never a real per-path
+caching issue. The rename was kept anyway (reverting it back to `/api/articles`
+now would add risk for zero benefit), but if a future session wonders why
+the route isn't called the "obvious" name, this is the full, resolved
+reason — not an open question.
 
 **Two layers of timeout, because one wasn't enough.** `server/lib/withTimeout.js`
 is a shared `Promise.race`-against-a-timer helper used at two different
@@ -253,8 +278,9 @@ exists and `GIT_COMMIT` isn't set.
 The AI Router's exact base path/auth header in `server/lib/vibeAiClient.js`
 (`VIBE_AI_BASE_URL`, defaults to `https://vibecode.bitrix24.tech/v1/ai`) was
 never verified against real platform docs (see the `⚠️ ПРЕДПОЛОЖЕНИЕ`
-comment at the top of that file) — if `/api/analyze` starts 502ing after a
-platform change, that's the first thing to re-check via `/api/health`.
+comment at the top of that file) — if `/api/analyze` starts responding with
+`ai_unavailable`/`analyze_failed` after a platform change, that's the first
+thing to re-check via `/api/health`.
 Direct OpenAI is not an option: OpenAI geo-blocks VibeCode's Russian server
 IPs (403).
 
@@ -291,7 +317,7 @@ cells, multi-run hyperlink text accumulation, same-URL-non-contiguous
 dedup); (2) the real `/api/article-list*` routes against a live but
 unconfigured/invalid service account — Google's real OAuth endpoint
 correctly rejects a fake account (`invalid_grant`) over the network, and the
-route still 502s cleanly (`sheet_unavailable`/`docs_unavailable`) instead of
+route still 500s cleanly (`sheet_unavailable`/`docs_unavailable`) instead of
 crashing the process. What's NOT been confirmed from here: a real successful
 sheet read or doc fetch — that only the user can verify once real
 `GOOGLE_SERVICE_ACCOUNT_KEY_BASE64`/`GOOGLE_SHEET_ID` are set and the sheet
