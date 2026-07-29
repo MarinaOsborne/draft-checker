@@ -64,12 +64,14 @@ export async function verifyPin(pin) {
   return res.ok;
 }
 
-export async function getArticles() {
-  return request("/api/article-list");
+export async function getArticles(language) {
+  const q = new URLSearchParams({ language });
+  return request(`/api/article-list?${q.toString()}`);
 }
 
-export async function getArticleContent(id) {
-  return request(`/api/article-list/${encodeURIComponent(id)}/content`);
+export async function getArticleContent(id, language) {
+  const q = new URLSearchParams({ language });
+  return request(`/api/article-list/${encodeURIComponent(id)}/content?${q.toString()}`);
 }
 
 export async function getRunCount(language, filename) {

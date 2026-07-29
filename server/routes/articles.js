@@ -2,8 +2,23 @@ import { Router } from "express";
 import { requirePin } from "../middleware/requirePin.js";
 import { listArticles, getArticleById, getDocContent } from "../lib/googleClient.js";
 import { withTimeout } from "../lib/withTimeout.js";
+import { LANGS } from "../lib/constants.js";
 
 const router = Router();
+
+// One sheet, one tab per language (GOOGLE_SHEET_RANGE used to be a single
+// static "A:Z"-style env var, which meant every language read the same
+// tab) — the client now sends the language it has selected in the UI, and
+// googleClient.js builds the range from it (`${tab}!A:Z`, see
+// sheetTabForLanguage).
+function validLanguage(req, res) {
+  const { language } = req.query;
+  if (!language || !LANGS.includes(language)) {
+    res.status(400).json({ error: "language обязателен и должен быть одним из поддерживаемых кодов", code: "bad_request" });
+    return null;
+  }
+  return language;
+}
 
 // Whole-route deadline — deliberately separate from GOOGLE_API_TIMEOUT_MS in
 // googleClient.js, which only bounds one individual Google API call at a
@@ -29,9 +44,11 @@ const ROUTE_TIMEOUT_MS = 9000;
 // the error `code` from the JSON body, not the raw HTTP status, so this
 // has no effect on user-facing behavior beyond actually delivering the body.
 router.get("/article-list", requirePin, async (req, res) => {
+  const language = validLanguage(req, res);
+  if (!language) return;
   try {
     const articles = await withTimeout(
-      listArticles(),
+      listArticles(language),
       ROUTE_TIMEOUT_MS,
       `Article list route timeout after ${ROUTE_TIMEOUT_MS}ms`
     );
@@ -51,6 +68,8 @@ router.get("/article-list", requirePin, async (req, res) => {
 
 router.get("/article-list/:id/content", requirePin, async (req, res) => {
   const { id } = req.params;
+  const language = validLanguage(req, res);
+  if (!language) return;
   // Tracks which phase was in flight if the outer deadline fires, so a
   // timeout during either phase still gets the same specific error code
   // (sheet_unavailable / docs_unavailable) it would have gotten from that
@@ -59,7 +78,7 @@ router.get("/article-list/:id/content", requirePin, async (req, res) => {
   try {
     const result = await withTimeout(
       (async () => {
-        const article = await getArticleById(id);
+        const article = await getArticleById(id, language);
         if (!article) {
           const err = new Error("Статья не найдена");
           err.articleNotFound = true;

@@ -72,12 +72,26 @@ this in mind before assuming a scoring jump with "no visible diff" is a bug.
 **Google Docs integration — how an editor picks an article.** Editors no
 longer upload files by hand; `ArticlePicker` (`src/components/ArticlePicker.jsx`)
 shows a `<select>` of article titles fetched from `GET /api/article-list`,
-backed by a Google Sheet (`GOOGLE_SHEET_ID`) with one row per article and
-header columns `id`, `Title`, `draft` (AI draft doc), `Link to content`
-(editor's edited/final doc) — the reverse of what the column names alone
-suggest, confirmed against the real sheet after an initial mix-up that had
-draft and final swapped in the UI. `server/lib/googleClient.js::listArticles`
-reads the header row to find these columns by name (not fixed letters) so
+backed by a Google Sheet (`GOOGLE_SHEET_ID`) — **one spreadsheet, one tab per
+language**, tab names matching the UI's language codes exactly (`EN`, `ES`,
+`BR`, `DE`, `FR`, `TR`, `PL`, `VN`, `IT` — see `LANGS` in both
+`src/constants.js` and its server-side duplicate `server/lib/constants.js`).
+The client sends the currently selected UI language as a `language` query
+param on every `/api/article-list*` request; the server resolves it to a
+tab name (`sheetTabForLanguage` in `server/lib/googleClient.js`, identity
+mapping by default — override an individual entry there if some tab's real
+name doesn't match its code exactly, since Sheets API ranges are
+case-sensitive) and builds the range as `` `${tab}!A:Z` `` on the fly. This
+replaced an earlier single static `GOOGLE_SHEET_RANGE` env var (one
+hardcoded tab for every language) once the sheet grew a tab per language —
+switching the language dropdown now re-fetches the article list from that
+language's tab and clears any already-selected article, since a selection
+from one language's tab means nothing on another. Each tab has header
+columns `id`, `Title`, `draft` (AI draft doc), `Link to content` (editor's
+edited/final doc) — the reverse of what the column names alone suggest,
+confirmed against the real sheet after an initial mix-up that had draft and
+final swapped in the UI. `server/lib/googleClient.js::listArticles` reads
+the header row to find these columns by name (not fixed letters) so
 reordering columns in the sheet doesn't break it. Choosing a title calls
 `GET /api/article-list/:id/content`, which looks the row up again, extracts both
 Google Doc IDs from their share-link URLs (`extractDocId`), fetches each via

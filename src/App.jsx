@@ -60,12 +60,12 @@ export default function App() {
   useEffect(() => {
     if (!authenticated) return;
     setLoadingList(true);
-    getArticles()
+    getArticles(activeLang)
       .then((r) => setArticles(r.articles))
       .catch((e) => handleAuthError(e))
       .finally(() => setLoadingList(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authenticated]);
+  }, [authenticated, activeLang]);
 
   useEffect(() => {
     if (!authenticated || !final.file) {
@@ -106,7 +106,7 @@ export default function App() {
     setSelectedArticleId(articleId);
     setLoadingContent(true);
     try {
-      const content = await getArticleContent(articleId);
+      const content = await getArticleContent(articleId, activeLang);
       const fileRef = { name: content.title };
       setDraft({ file: fileRef, text: content.draft.text, wordCount: content.draft.wordCount, links: content.draft.links });
       setFinal({ file: fileRef, text: content.final.text, wordCount: content.final.wordCount, links: content.final.links });
@@ -123,6 +123,12 @@ export default function App() {
     setActiveLang(lang);
     setShowResult(false);
     setResult(null);
+    // Each language reads a different sheet tab (see ArticlePicker's fetch
+    // effect above), so a previously selected article belongs to the old
+    // language's list and no longer applies.
+    setSelectedArticleId(null);
+    setDraft(EMPTY_FILE);
+    setFinal(EMPTY_FILE);
   }
 
   async function handleRun() {

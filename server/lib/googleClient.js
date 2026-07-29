@@ -13,6 +13,20 @@
 
 import { GoogleAuth } from "google-auth-library";
 import { withTimeout } from "./withTimeout.js";
+import { LANGS } from "./constants.js";
+
+// Maps a UI language code to the exact tab name in GOOGLE_SHEET_ID — one
+// tab per language, each with its own article list. Defaults to the code
+// itself (confirmed against the real sheet: tabs are named EN/ES/BR/DE/FR/
+// TR/PL/VN/IT, matching the UI's language codes exactly). Google Sheets
+// range references are case-sensitive on the tab name, so if a real tab's
+// name ever doesn't match its code exactly (different case, a typo, etc.),
+// override just that entry here rather than renaming the tab.
+const LANGUAGE_SHEET_TABS = Object.fromEntries(LANGS.map((lang) => [lang, lang]));
+
+export function sheetTabForLanguage(language) {
+  return LANGUAGE_SHEET_TABS[language] || null;
+}
 
 const SCOPES = [
   "https://www.googleapis.com/auth/spreadsheets.readonly",
@@ -113,18 +127,20 @@ export function parseArticleRows(rows) {
     .filter((a) => a.id && a.title && a.draftDocId && a.finalDocId);
 }
 
-export async function listArticles() {
+export async function listArticles(language) {
   const spreadsheetId = process.env.GOOGLE_SHEET_ID;
   if (!spreadsheetId) throw new Error("GOOGLE_SHEET_ID is not set");
-  const range = process.env.GOOGLE_SHEET_RANGE || "A:Z";
+  const tab = sheetTabForLanguage(language);
+  if (!tab) throw new Error(`Unknown language "${language}" — no matching sheet tab configured`);
+  const range = `${tab}!A:Z`;
 
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}/values/${encodeURIComponent(range)}`;
   const data = await authorizedFetch(url);
   return parseArticleRows(data.values);
 }
 
-export async function getArticleById(id) {
-  const all = await listArticles();
+export async function getArticleById(id, language) {
+  const all = await listArticles(language);
   return all.find((a) => a.id === id) || null;
 }
 
