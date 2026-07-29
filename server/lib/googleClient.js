@@ -86,6 +86,11 @@ const REQUIRED_COLUMNS = ["id", "title", "link to content", "draft"];
 // column letters, so reordering columns in the sheet doesn't silently break
 // this — split out from listArticles() so it's unit-testable without a live
 // Sheets API call.
+//
+// Column semantics (confirmed against the real sheet, corrected after an
+// initial mix-up): "draft" holds the AI-generated draft doc, "link to
+// content" holds the editor's edited/final doc — the reverse of what the
+// column names alone would suggest.
 export function parseArticleRows(rows) {
   if (!rows || rows.length === 0) return [];
 
@@ -102,8 +107,8 @@ export function parseArticleRows(rows) {
     .map((row) => ({
       id: (row[colIndex["id"]] || "").trim(),
       title: (row[colIndex["title"]] || "").trim(),
-      draftDocId: extractDocId(row[colIndex["link to content"]]),
-      finalDocId: extractDocId(row[colIndex["draft"]]),
+      draftDocId: extractDocId(row[colIndex["draft"]]),
+      finalDocId: extractDocId(row[colIndex["link to content"]]),
     }))
     .filter((a) => a.id && a.title && a.draftDocId && a.finalDocId);
 }

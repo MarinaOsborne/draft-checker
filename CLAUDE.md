@@ -73,9 +73,11 @@ this in mind before assuming a scoring jump with "no visible diff" is a bug.
 longer upload files by hand; `ArticlePicker` (`src/components/ArticlePicker.jsx`)
 shows a `<select>` of article titles fetched from `GET /api/article-list`,
 backed by a Google Sheet (`GOOGLE_SHEET_ID`) with one row per article and
-header columns `id`, `Title`, `Link to content` (AI draft doc, read-only),
-`draft` (editor's doc) — `server/lib/googleClient.js::listArticles` reads
-the header row to find these columns by name (not fixed letters) so
+header columns `id`, `Title`, `draft` (AI draft doc), `Link to content`
+(editor's edited/final doc) — the reverse of what the column names alone
+suggest, confirmed against the real sheet after an initial mix-up that had
+draft and final swapped in the UI. `server/lib/googleClient.js::listArticles`
+reads the header row to find these columns by name (not fixed letters) so
 reordering columns in the sheet doesn't break it. Choosing a title calls
 `GET /api/article-list/:id/content`, which looks the row up again, extracts both
 Google Doc IDs from their share-link URLs (`extractDocId`), fetches each via
