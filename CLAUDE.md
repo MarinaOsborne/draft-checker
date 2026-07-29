@@ -93,6 +93,24 @@ that service account's `client_email`, or `/api/articles*` 502s
 sheet or the docs — the analysis result lives only in this app, same as
 before.
 
+**`authorizedFetch` in `googleClient.js` bounds every Google API call to 10s
+(`GOOGLE_API_TIMEOUT_MS`), racing it against the request itself** — without
+this, a hang in either leg (the OAuth token exchange with
+`oauth2.googleapis.com`, which never even reaches `fetch`, or the actual
+Sheets/Docs call) would block the response until the VibeCode platform
+gateway gives up on its own unknown/unconfigurable timeout, and the browser
+would see a bare 502/503 with no body, surfaced by `src/api.js` as the
+generic, unhelpful "server_unavailable" instead of our specific translated
+`sheet_unavailable`/`docs_unavailable` message. The timeout promise's
+`reject()` is called *before* `controller.abort()` inside the timer
+callback, not after — aborting first would synchronously fire `fetch`'s own
+`AbortError` rejection, which (being scheduled as a microtask before our own
+`reject()` gets a chance to run) would then win the `Promise.race` and leak
+a generic "This operation was aborted" instead of the clear
+"Google API timeout after 10000ms" message. Confirmed with an isolated
+harness replicating this exact ordering (not just assumed) before trusting
+it — see git history for `server/lib/googleClient.js`.
+
 **Scoring is holistic per-version, not diff-sized.** The single LLM call in
 `server/lib/vibeAiClient.js` scores `ai_draft_quality` and
 `final_article_quality` (0-100) by reading each *entire* text version on its

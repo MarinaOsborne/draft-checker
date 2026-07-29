@@ -36,17 +36,59 @@ function getAuth() {
   return auth;
 }
 
+// Without this, a hang in either leg of the request below (the OAuth token
+// exchange with oauth2.googleapis.com, or the actual Sheets/Docs API call)
+// would block the response until the VibeCode platform gateway itself gives
+// up and kills the connection — the browser then sees a bare 502/503 with no
+// body, which src/api.js can only report as the generic "server_unavailable"
+// (see its comment on why that fallback exists). Racing against our own
+// timeout instead means the client always gets our specific, translated
+// sheet_unavailable/docs_unavailable error well before the gateway's own
+// (unknown, unconfigurable) timeout kicks in.
+const GOOGLE_API_TIMEOUT_MS = 10000;
+
 async function authorizedFetch(url) {
-  const client = await getAuth().getClient();
-  const { token } = await client.getAccessToken();
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    const err = new Error(`Google API request failed: ${res.status} ${body.slice(0, 300)}`);
-    err.status = res.status;
-    throw err;
+  const controller = new AbortController();
+
+  // This timer is the single source of truth for the timeout error: it
+  // fires deterministically at GOOGLE_API_TIMEOUT_MS regardless of *where*
+  // `request` is stuck (the token exchange never even reaches `fetch`, so
+  // `controller.signal` alone can't bound it — only a plain timer can).
+  // Aborting the controller here is just best-effort cleanup for `fetch`
+  // itself, not what actually bounds the wait.
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      // Reject with our own clear error FIRST, then abort — abort()
+      // synchronously fires `request`'s AbortError rejection, and whichever
+      // reject() call happens first wins the race (Promise.race settles on
+      // whichever reaction microtask was scheduled first). Aborting after
+      // guarantees our message wins even if `fetch` was already in flight.
+      const err = new Error(`Google API timeout after ${GOOGLE_API_TIMEOUT_MS}ms`);
+      err.code = "google_api_timeout";
+      reject(err);
+      controller.abort();
+    }, GOOGLE_API_TIMEOUT_MS);
+  });
+
+  const request = (async () => {
+    const client = await getAuth().getClient();
+    const { token } = await client.getAccessToken();
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, signal: controller.signal });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      const err = new Error(`Google API request failed: ${res.status} ${body.slice(0, 300)}`);
+      err.status = res.status;
+      throw err;
+    }
+    return res.json();
+  })();
+
+  try {
+    return await Promise.race([request, timeout]);
+  } finally {
+    clearTimeout(timer);
   }
-  return res.json();
 }
 
 // Sheet cells hold full "https://docs.google.com/document/d/<id>/edit" URLs —
