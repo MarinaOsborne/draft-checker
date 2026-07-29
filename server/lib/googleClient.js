@@ -12,6 +12,7 @@
 // read access to directly.
 
 import { GoogleAuth } from "google-auth-library";
+import { withTimeout } from "./withTimeout.js";
 
 const SCOPES = [
   "https://www.googleapis.com/auth/spreadsheets.readonly",
@@ -36,41 +37,22 @@ function getAuth() {
   return auth;
 }
 
-// Without this, a hang in either leg of the request below (the OAuth token
-// exchange with oauth2.googleapis.com, or the actual Sheets/Docs API call)
-// would block the response until the VibeCode platform gateway itself gives
-// up and kills the connection — the browser then sees a bare 502/503 with no
-// body, which src/api.js can only report as the generic "server_unavailable"
-// (see its comment on why that fallback exists). Racing against our own
-// timeout instead means the client always gets our specific, translated
-// sheet_unavailable/docs_unavailable error well before the gateway's own
-// (unknown, unconfigurable) timeout kicks in.
-const GOOGLE_API_TIMEOUT_MS = 10000;
+// Bounds each *individual* Google API call — without it, a hang in either
+// leg (the OAuth token exchange with oauth2.googleapis.com, which never even
+// reaches `fetch`, or the actual Sheets/Docs call) would hang indefinitely.
+// This alone is NOT enough to keep a whole request under the VibeCode
+// gateway's own timeout, though: server/routes/articles.js's
+// GET /articles/:id/content makes two of these calls *sequentially* (find
+// the row via listArticles(), only then fetch the two docs) — up to
+// GOOGLE_API_TIMEOUT_MS twice adds up past a gateway that (per production
+// observation) appears to cut around 10s. See ROUTE_TIMEOUT_MS in
+// articles.js for the outer, whole-route deadline that actually guarantees
+// the client gets our translated sheet_unavailable/docs_unavailable error
+// instead of the gateway's own bare, generic 502/503.
+const GOOGLE_API_TIMEOUT_MS = 8000;
 
 async function authorizedFetch(url) {
   const controller = new AbortController();
-
-  // This timer is the single source of truth for the timeout error: it
-  // fires deterministically at GOOGLE_API_TIMEOUT_MS regardless of *where*
-  // `request` is stuck (the token exchange never even reaches `fetch`, so
-  // `controller.signal` alone can't bound it — only a plain timer can).
-  // Aborting the controller here is just best-effort cleanup for `fetch`
-  // itself, not what actually bounds the wait.
-  let timer;
-  const timeout = new Promise((_, reject) => {
-    timer = setTimeout(() => {
-      // Reject with our own clear error FIRST, then abort — abort()
-      // synchronously fires `request`'s AbortError rejection, and whichever
-      // reject() call happens first wins the race (Promise.race settles on
-      // whichever reaction microtask was scheduled first). Aborting after
-      // guarantees our message wins even if `fetch` was already in flight.
-      const err = new Error(`Google API timeout after ${GOOGLE_API_TIMEOUT_MS}ms`);
-      err.code = "google_api_timeout";
-      reject(err);
-      controller.abort();
-    }, GOOGLE_API_TIMEOUT_MS);
-  });
-
   const request = (async () => {
     const client = await getAuth().getClient();
     const { token } = await client.getAccessToken();
@@ -84,11 +66,9 @@ async function authorizedFetch(url) {
     return res.json();
   })();
 
-  try {
-    return await Promise.race([request, timeout]);
-  } finally {
-    clearTimeout(timer);
-  }
+  return withTimeout(request, GOOGLE_API_TIMEOUT_MS, `Google API timeout after ${GOOGLE_API_TIMEOUT_MS}ms`, {
+    onTimeout: () => controller.abort(),
+  });
 }
 
 // Sheet cells hold full "https://docs.google.com/document/d/<id>/edit" URLs —

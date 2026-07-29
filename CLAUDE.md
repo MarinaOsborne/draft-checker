@@ -93,23 +93,45 @@ that service account's `client_email`, or `/api/articles*` 502s
 sheet or the docs — the analysis result lives only in this app, same as
 before.
 
-**`authorizedFetch` in `googleClient.js` bounds every Google API call to 10s
-(`GOOGLE_API_TIMEOUT_MS`), racing it against the request itself** — without
-this, a hang in either leg (the OAuth token exchange with
-`oauth2.googleapis.com`, which never even reaches `fetch`, or the actual
-Sheets/Docs call) would block the response until the VibeCode platform
+**Two layers of timeout, because one wasn't enough.** `server/lib/withTimeout.js`
+is a shared `Promise.race`-against-a-timer helper used at two different
+levels:
+- `authorizedFetch` in `googleClient.js` bounds each *individual* Google API
+  call to `GOOGLE_API_TIMEOUT_MS` (8s) — covers a hang in either leg (the
+  OAuth token exchange with `oauth2.googleapis.com`, which never even
+  reaches `fetch`, or the actual Sheets/Docs call).
+- `ROUTE_TIMEOUT_MS` (9s) in `server/routes/articles.js` wraps each route
+  handler's *entire* body in a second, outer deadline. This layer exists
+  because per-call bounding alone was NOT sufficient: `GET
+  /articles/:id/content` makes two Google API calls *sequentially* (find the
+  row via `listArticles()`, only then fetch both docs), so two individually-
+  fast-but-slow-ish calls could still add up past the VibeCode gateway's own
+  (~10s, per production observation) cutoff even though neither call
+  individually hit its own timeout — confirmed by re-reading the actual code
+  path, not assumed, after a report of `/api/articles` intermittently
+  surfacing the generic "server_unavailable" instead of a specific error. The
+  route wrapper tracks which phase (`"sheet"` vs `"docs"`) was in flight when
+  the outer deadline fires, so a timeout during either phase still reports
+  the same specific `sheet_unavailable`/`docs_unavailable` code its own
+  try/catch would have produced.
+
+Without either layer, a hang would block the response until the platform
 gateway gives up on its own unknown/unconfigurable timeout, and the browser
 would see a bare 502/503 with no body, surfaced by `src/api.js` as the
 generic, unhelpful "server_unavailable" instead of our specific translated
-`sheet_unavailable`/`docs_unavailable` message. The timeout promise's
-`reject()` is called *before* `controller.abort()` inside the timer
-callback, not after — aborting first would synchronously fire `fetch`'s own
-`AbortError` rejection, which (being scheduled as a microtask before our own
+error. `withTimeout`'s timer calls `reject()` with its own clear message
+*before* calling the caller-supplied `onTimeout` (e.g. an
+`AbortController.abort()` to cancel an in-flight `fetch`) — not after:
+aborting first would synchronously fire `fetch`'s own `AbortError`
+rejection, which (its reaction microtask being scheduled before our own
 `reject()` gets a chance to run) would then win the `Promise.race` and leak
-a generic "This operation was aborted" instead of the clear
-"Google API timeout after 10000ms" message. Confirmed with an isolated
-harness replicating this exact ordering (not just assumed) before trusting
-it — see git history for `server/lib/googleClient.js`.
+a generic "This operation was aborted" instead of our clear message.
+Confirmed with an isolated harness replicating this exact ordering (not just
+assumed) before trusting it, and separately confirmed that a second,
+outer `withTimeout` call correctly cuts off a two-phase sequential
+operation that individually-fast legs would otherwise let run past the
+outer deadline — see git history for `server/lib/withTimeout.js` and
+`server/lib/googleClient.js`.
 
 **Scoring is holistic per-version, not diff-sized.** The single LLM call in
 `server/lib/vibeAiClient.js` scores `ai_draft_quality` and
