@@ -1,5 +1,7 @@
 import { Router } from "express";
+import fs from "fs/promises";
 import { getAllLogs } from "../lib/analyticsStore.js";
+import { ANALYSIS_LOG_FILE } from "../lib/store.js";
 
 const router = Router();
 
@@ -212,6 +214,33 @@ router.post("/admin/stats", async (req, res) => {
   }
   const logs = await getAllLogs();
   res.send(statsPage(logs));
+});
+
+// Выгрузка сырого data/analysis-log.jsonl для n8n/скриптов — дёргается
+// curl'ом, не браузером, поэтому пароль в заголовке (X-Admin-Password), а не
+// в теле формы, и ответ — не HTML, а сам файл как есть (application/x-ndjson,
+// стандартный MIME для JSONL/NDJSON).
+router.post("/admin/export-analysis", async (req, res) => {
+  const expected = process.env.ADMIN_PASSWORD;
+  if (!expected) {
+    return res.status(500).send("ADMIN_PASSWORD не задан на сервере — админ-панель отключена.");
+  }
+  const provided = req.headers["x-admin-password"];
+  if (provided !== expected) {
+    return res.status(401).send("Неверный пароль");
+  }
+  try {
+    const content = await fs.readFile(ANALYSIS_LOG_FILE, "utf8");
+    res.set("Content-Type", "application/x-ndjson; charset=utf-8");
+    res.send(content);
+  } catch (e) {
+    if (e.code === "ENOENT") {
+      res.set("Content-Type", "application/x-ndjson; charset=utf-8");
+      return res.send("");
+    }
+    console.error("Не удалось прочитать data/analysis-log.jsonl:", e);
+    res.status(500).send("Ошибка чтения файла.");
+  }
 });
 
 export default router;

@@ -3,7 +3,10 @@ import path from "path";
 
 const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), "data");
 const RUNS_FILE = path.join(DATA_DIR, "runs.json");
-const ANALYSIS_LOG_FILE = path.join(DATA_DIR, "analysis-log.jsonl");
+// Экспортируется, чтобы другие модули (напр. export-эндпоинт в admin.js)
+// читали ровно тот же путь, что и saveAnalysisRecord пишет — без риска
+// разъехаться, если DATA_DIR когда-нибудь переопределят.
+export const ANALYSIS_LOG_FILE = path.join(DATA_DIR, "analysis-log.jsonl");
 
 let writeQueue = Promise.resolve();
 
