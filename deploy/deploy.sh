@@ -75,7 +75,7 @@ VIBE_AI_BASE_URL="${VIBE_AI_BASE_URL:-https://vibecode.bitrix24.tech/v1/ai}"
 # (не открывается без пароля и не падает на дефолтный).
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-}"
 
-api()   { curl -s -H "X-Api-Key: $VIBE_KEY" "$@"; }
+api()   { curl -s --ssl-no-revoke -H "X-Api-Key: $VIBE_KEY" "$@"; }
 # вытащить строковое поле из JSON-ответа (чтобы не зависеть от jq)
 field() { grep -oE "\"$1\":\"[^\"]*\"" | head -1 | sed -E "s/.*:\"([^\"]*)\"/\1/"; }
 # base64 без переносов строк — на GNU (Linux/Git Bash) есть -w0, на BSD/macOS нет
