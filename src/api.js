@@ -64,10 +64,14 @@ export async function verifyPin(pin) {
   return res.ok;
 }
 
-export async function parseDocx(file) {
-  const form = new FormData();
-  form.append("file", file);
-  return request("/api/parse", { method: "POST", body: form });
+export async function getArticles(language) {
+  const q = new URLSearchParams({ language });
+  return request(`/api/article-list?${q.toString()}`);
+}
+
+export async function getArticleContent(id, language) {
+  const q = new URLSearchParams({ language });
+  return request(`/api/article-list/${encodeURIComponent(id)}/content?${q.toString()}`);
 }
 
 export async function getRunCount(language, filename) {
