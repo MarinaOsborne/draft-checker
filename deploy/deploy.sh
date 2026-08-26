@@ -74,6 +74,16 @@ VIBE_AI_BASE_URL="${VIBE_AI_BASE_URL:-https://vibecode.bitrix24.tech/v1/ai}"
 # Опционален: без него /admin/stats просто отвечает 500 и остаётся выключен
 # (не открывается без пароля и не падает на дефолтный).
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-}"
+# Опциональны: без них /api/article-list отвечает sheet_unavailable и выбор
+# статьи по Title недоступен — см. server/lib/googleClient.js и .env.example.
+GOOGLE_SERVICE_ACCOUNT_KEY_BASE64="${GOOGLE_SERVICE_ACCOUNT_KEY_BASE64:-}"
+GOOGLE_SHEET_ID="${GOOGLE_SHEET_ID:-}"
+# Стамп коммита, который реально паковался — .git не входит в архив (см. ниже),
+# поэтому server/lib/version.js не может вызвать `git rev-parse` в рантайме на
+# проде; здесь мы всё ещё внутри репозитория, так что делаем это один раз тут
+# и кладём готовый хэш в .env архива. Отвечает на вопрос "какой коммит сейчас
+# задеплоен?" через GET /api/health без доступа к консоли платформы.
+GIT_COMMIT="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || echo unknown)"
 
 api()   { curl -s --ssl-no-revoke -H "X-Api-Key: $VIBE_KEY" "$@"; }
 # вытащить строковое поле из JSON-ответа (чтобы не зависеть от jq)
@@ -103,6 +113,9 @@ VIBE_KEY=$VIBE_KEY
 VIBE_AI_MODEL=$VIBE_AI_MODEL
 VIBE_AI_BASE_URL=$VIBE_AI_BASE_URL
 ADMIN_PASSWORD=$ADMIN_PASSWORD
+GOOGLE_SERVICE_ACCOUNT_KEY_BASE64=$GOOGLE_SERVICE_ACCOUNT_KEY_BASE64
+GOOGLE_SHEET_ID=$GOOGLE_SHEET_ID
+GIT_COMMIT=$GIT_COMMIT
 EOF
 ( cd "$WORK/stage" && npm ci --omit=dev --ignore-scripts >/dev/null ) || { echo "❌ npm ci упал"; exit 1; }
 tar -czf "$WORK/app.tgz" -C "$WORK/stage" .

@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { testConnection } from "../lib/vibeAiClient.js";
+import { getGitCommit } from "../lib/version.js";
 
 const router = Router();
 
@@ -10,6 +11,7 @@ router.get("/health", async (req, res) => {
     node: process.version,
     uptimeSeconds: Math.round(process.uptime()),
     vibeKey: process.env.VIBE_KEY ? "set" : "not set",
+    gitCommit: getGitCommit(),
     aiTest,
   });
 });
