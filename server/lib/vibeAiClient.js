@@ -357,22 +357,65 @@ ${finalText}
 FINAL TEXT LINKS (hyperlinks extracted from the .docx, not visible in the text above):
 ${formatLinks(finalLinks)}`;
 
-  const response = await callWithRetry(() =>
-    getClient().chat.completions.create({
-      model,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: userMessage },
-      ],
-    })
+  // Диагностика для жалобы "анализ не завершается / [object Object] / AI
+  // Router failed, работает через раз" (см. задачу) — нужно было понять, на
+  // каком именно этапе происходит сбой и сколько реально длится запрос к AI
+  // Router, без записи полных текстов пользовательских документов в лог
+  // (пишем только длины и тайминги; текст ответа модели — только обрезанный
+  // фрагмент, и только когда парсинг JSON падает).
+  const requestStartedAt = Date.now();
+  let response;
+  try {
+    response = await callWithRetry(() =>
+      getClient().chat.completions.create({
+        model,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: userMessage },
+        ],
+      })
+    );
+  } catch (e) {
+    const durationMs = Date.now() - requestStartedAt;
+    console.error(
+      `[analyze] stage=ai_router_request FAILED after ${durationMs}ms — status=${e?.status ?? "n/a"} message=${e?.message ?? e}`
+    );
+    throw e;
+  }
+  const durationMs = Date.now() - requestStartedAt;
+
+  const choice = response.choices?.[0];
+  const text = choice?.message?.content;
+  const finishReason = choice?.finish_reason ?? "n/a";
+  console.log(
+    `[analyze] stage=ai_router_request OK after ${durationMs}ms — finish_reason=${finishReason}, ` +
+      `content_length=${text ? text.length : 0}, usage=${JSON.stringify(response.usage || {})}`
   );
 
-  const text = response.choices?.[0]?.message?.content;
   if (!text) {
+    console.error(`[analyze] stage=empty_content — finish_reason=${finishReason}, после успешного ответа за ${durationMs}мс`);
     throw new Error("AI Router не вернул текстовый ответ");
   }
-  const parsed = extractJson(text);
+
+  let parsed;
+  try {
+    parsed = extractJson(text);
+  } catch (e) {
+    // Сырой текст — это ответ МОДЕЛИ (структурированные баллы/цитаты), а не
+    // исходные draftText/finalText пользователя; тем не менее пишем только
+    // начало и конец (не всё целиком) — этого достаточно, чтобы отличить
+    // "обрезано на середине" (признак нехватки max_tokens) от "модель вернула
+    // не-JSON текст целиком".
+    const head = text.slice(0, 300);
+    const tail = text.length > 600 ? text.slice(-300) : "";
+    console.error(
+      `[analyze] stage=json_parse_failed — finish_reason=${finishReason}, content_length=${text.length}, ` +
+        `error=${e.message}\n  head: ${JSON.stringify(head)}\n  tail: ${JSON.stringify(tail)}`
+    );
+    throw e;
+  }
+
   const analysis = normalize(parsed);
   // Диагностика "подозрительно одинаковых" holistic-оценок (см. историю:
   // жалоба, что ai_draft_quality у разных драфтов выходит одним и тем же

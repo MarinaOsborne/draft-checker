@@ -25,6 +25,27 @@ export function isLoggedIn() {
   return Boolean(getPin()) && Boolean(getUsername());
 }
 
+// body.error ожидается строкой от нашего собственного сервера (все роуты
+// шлют её так), но если запрос вообще не дошёл до нашего приложения — его
+// мог перехватить гейтвей платформы VibeCode своим собственным ответом с
+// другой формой ошибки (например, { error: { code, message } } вместо
+// строки) — тогда `new Error(body.error)` раньше превращал объект в строку
+// "[object Object]" (стандартное поведение String(obj) в JS). Эта функция
+// достаёт понятное сообщение из любой из этих форм, не теряя технический
+// body (его целиком пишем в console.error выше, до вызова этой функции).
+function errorMessageFrom(body, status) {
+  if (typeof body.error === "string" && body.error) return body.error;
+  if (body.error && typeof body.error === "object") {
+    if (typeof body.error.message === "string" && body.error.message) return body.error.message;
+    try {
+      return `Request failed: ${status} (${JSON.stringify(body.error)})`;
+    } catch {
+      // falls through to the generic message below
+    }
+  }
+  return `Request failed: ${status}`;
+}
+
 async function request(path, options = {}) {
   const res = await fetch(path, {
     ...options,
@@ -40,7 +61,10 @@ async function request(path, options = {}) {
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    const err = new Error(body.error || `Request failed: ${res.status}`);
+    // Технические подробности — в консоль браузера, не пользователю (см.
+    // жалобу на "[object Object]" вместо понятной ошибки).
+    console.error("API error response:", res.status, body);
+    const err = new Error(errorMessageFrom(body, res.status));
     err.status = res.status;
     // Гейтвей платформы VibeCode может оборвать запрос по тайм-ауту и
     // вернуть свой собственный 502/503 без JSON-тела в нашем формате (наше

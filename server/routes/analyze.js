@@ -62,6 +62,8 @@ router.post("/analyze", requirePin, async (req, res) => {
     if (!res.writableEnded) clientDisconnected = true;
   });
 
+  const handlerStartedAt = Date.now();
+  let modelSucceeded = false;
   try {
     const { analysis, usage } = await analyzeArticle({
       draftText,
@@ -70,6 +72,8 @@ router.post("/analyze", requirePin, async (req, res) => {
       draftLinks: Array.isArray(draftLinks) ? draftLinks : [],
       finalLinks: Array.isArray(finalLinks) ? finalLinks : [],
     });
+    modelSucceeded = true;
+    console.log(`[analyze] stage=model_succeeded at +${Date.now() - handlerStartedAt}мс — верхняя граница перед учётом прогона`);
     if (clientDisconnected) {
       console.warn("Клиент отключился до получения ответа — прогон не списан.");
       return;
@@ -110,22 +114,39 @@ router.post("/analyze", requirePin, async (req, res) => {
       console.error("Не удалось сохранить запись в data/analysis-log.jsonl:", e);
     }
 
-    await logAnalysis({
-      username,
-      language,
-      filename: finalFilename,
-      tokens: usage.total_tokens,
-      verdict: analysis.verdict,
-      draftScore: analysis.ai_draft_quality,
-      finalScore: analysis.final_article_quality,
-      draftScoreReasoning: analysis.ai_draft_quality_reasoning,
-      finalScoreReasoning: analysis.final_article_quality_reasoning,
-      runNumber: runsCount,
-      hva: analysis.human_value_added,
-      topEdits: analysis.top_edits,
-    });
+    // ВАЖНО: раньше этот вызов не был обёрнут в try/catch и стоял ДО
+    // res.json — если он падал (например, из-за гонки блокировки записи или
+    // нехватки места на диске под data/), исключение улетало в общий catch
+    // ниже уже ПОСЛЕ того, как AI Router успешно отработал и прогон был
+    // списан (incrementRuns выше) — пользователь в этом случае видел
+    // generic "AI Router failed", хотя анализ был полностью готов, а его
+    // попытка уже сгорела впустую. Изолируем ровно как saveAnalysisRecord
+    // выше, чтобы сбой статистики никогда не мешал отдать готовый результат.
+    try {
+      await logAnalysis({
+        username,
+        language,
+        filename: finalFilename,
+        tokens: usage.total_tokens,
+        verdict: analysis.verdict,
+        draftScore: analysis.ai_draft_quality,
+        finalScore: analysis.final_article_quality,
+        draftScoreReasoning: analysis.ai_draft_quality_reasoning,
+        finalScoreReasoning: analysis.final_article_quality_reasoning,
+        runNumber: runsCount,
+        hva: analysis.human_value_added,
+        topEdits: analysis.top_edits,
+      });
+    } catch (e) {
+      console.error("Не удалось сохранить запись в data/analytics.json:", e);
+    }
+    console.log(`[analyze] stage=responding_to_client at +${Date.now() - handlerStartedAt}мс`);
     res.json({ result: analysis, runsCount, monthlyRunsCount });
   } catch (e) {
+    console.error(
+      `[analyze] stage=handler_failed at +${Date.now() - handlerStartedAt}мс — modelSucceeded=${modelSucceeded} ` +
+        `(true означает, что AI Router уже успешно ответил, и сбой — в учёте прогона/логировании, не в самой модели)`
+    );
     console.error("AI Router analyze failed:", e.status || "", e.message, e.error || "");
     // Прогон НЕ списывается — increment выше выполняется только при успехе.
     // Статус намеренно 500, не 502/503 — см. комментарий в articles.js:
