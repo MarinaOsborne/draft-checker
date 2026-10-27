@@ -19,6 +19,7 @@
 // быстро проверить это без доступа к логам платформы.
 
 import OpenAI from "openai";
+import { logDiagnostic } from "./diagnosticsStore.js";
 
 const LANGUAGE_NAMES = {
   EN: "English",
@@ -360,9 +361,12 @@ ${formatLinks(finalLinks)}`;
   // Диагностика для жалобы "анализ не завершается / [object Object] / AI
   // Router failed, работает через раз" (см. задачу) — нужно было понять, на
   // каком именно этапе происходит сбой и сколько реально длится запрос к AI
-  // Router, без записи полных текстов пользовательских документов в лог
-  // (пишем только длины и тайминги; текст ответа модели — только обрезанный
-  // фрагмент, и только когда парсинг JSON падает).
+  // Router. Пишем ТОЛЬКО служебные метаданные (этап/длительность/статус/
+  // finish_reason/длины-числа) — ни текста документов, ни ответа модели, ни
+  // цитат не пишем нигде, включая консоль (см. requirements). Персистентная
+  // копия уходит в data/diagnostics.json через logDiagnostic — это и есть
+  // "доступная диагностика", которую видно в /admin/stats, в отличие от
+  // console.log/console.error, до которых на платформе VibeCode нет доступа.
   const requestStartedAt = Date.now();
   let response;
   try {
@@ -378,9 +382,16 @@ ${formatLinks(finalLinks)}`;
     );
   } catch (e) {
     const durationMs = Date.now() - requestStartedAt;
-    console.error(
-      `[analyze] stage=ai_router_request FAILED after ${durationMs}ms — status=${e?.status ?? "n/a"} message=${e?.message ?? e}`
-    );
+    console.error(`[analyze] stage=ai_router_request FAILED after ${durationMs}ms — status=${e?.status ?? "n/a"}`);
+    await logDiagnostic({
+      stage: "ai_router_request",
+      outcome: "error",
+      durationMs,
+      httpStatus: e?.status ?? null,
+      errorType: e?.constructor?.name || e?.name || "Error",
+      modelResponded: false,
+      language,
+    });
     throw e;
   }
   const durationMs = Date.now() - requestStartedAt;
@@ -388,13 +399,28 @@ ${formatLinks(finalLinks)}`;
   const choice = response.choices?.[0];
   const text = choice?.message?.content;
   const finishReason = choice?.finish_reason ?? "n/a";
-  console.log(
-    `[analyze] stage=ai_router_request OK after ${durationMs}ms — finish_reason=${finishReason}, ` +
-      `content_length=${text ? text.length : 0}, usage=${JSON.stringify(response.usage || {})}`
-  );
+  console.log(`[analyze] stage=ai_router_request OK after ${durationMs}ms — finish_reason=${finishReason}`);
+  await logDiagnostic({
+    stage: "ai_router_request",
+    outcome: "ok",
+    durationMs,
+    finishReason,
+    modelResponded: true,
+    contentLength: text ? text.length : 0,
+    language,
+  });
 
   if (!text) {
     console.error(`[analyze] stage=empty_content — finish_reason=${finishReason}, после успешного ответа за ${durationMs}мс`);
+    await logDiagnostic({
+      stage: "empty_content",
+      outcome: "error",
+      durationMs,
+      finishReason,
+      modelResponded: true,
+      contentLength: 0,
+      language,
+    });
     throw new Error("AI Router не вернул текстовый ответ");
   }
 
@@ -402,17 +428,17 @@ ${formatLinks(finalLinks)}`;
   try {
     parsed = extractJson(text);
   } catch (e) {
-    // Сырой текст — это ответ МОДЕЛИ (структурированные баллы/цитаты), а не
-    // исходные draftText/finalText пользователя; тем не менее пишем только
-    // начало и конец (не всё целиком) — этого достаточно, чтобы отличить
-    // "обрезано на середине" (признак нехватки max_tokens) от "модель вернула
-    // не-JSON текст целиком".
-    const head = text.slice(0, 300);
-    const tail = text.length > 600 ? text.slice(-300) : "";
-    console.error(
-      `[analyze] stage=json_parse_failed — finish_reason=${finishReason}, content_length=${text.length}, ` +
-        `error=${e.message}\n  head: ${JSON.stringify(head)}\n  tail: ${JSON.stringify(tail)}`
-    );
+    console.error(`[analyze] stage=json_parse_failed — finish_reason=${finishReason}, content_length=${text.length}`);
+    await logDiagnostic({
+      stage: "json_parse_failed",
+      outcome: "error",
+      durationMs,
+      finishReason,
+      modelResponded: true,
+      contentLength: text.length,
+      errorType: e?.constructor?.name || e?.name || "SyntaxError",
+      language,
+    });
     throw e;
   }
 

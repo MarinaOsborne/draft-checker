@@ -10,6 +10,7 @@ import {
 } from "../lib/store.js";
 import { analyzeArticle } from "../lib/vibeAiClient.js";
 import { logAnalysis } from "../lib/analyticsStore.js";
+import { logDiagnostic } from "../lib/diagnosticsStore.js";
 import { MAX_RUNS, MAX_MONTHLY_RUNS } from "../lib/constants.js";
 
 const router = Router();
@@ -112,6 +113,14 @@ router.post("/analyze", requirePin, async (req, res) => {
     } catch (e) {
       // Не роняем прогон редактора из-за ошибки записи лога — только логируем.
       console.error("Не удалось сохранить запись в data/analysis-log.jsonl:", e);
+      await logDiagnostic({
+        stage: "save_analysis_record",
+        outcome: "error",
+        modelResponded: true,
+        errorType: e?.constructor?.name || e?.name || "Error",
+        language,
+        username,
+      });
     }
 
     // ВАЖНО: раньше этот вызов не был обёрнут в try/catch и стоял ДО
@@ -139,15 +148,42 @@ router.post("/analyze", requirePin, async (req, res) => {
       });
     } catch (e) {
       console.error("Не удалось сохранить запись в data/analytics.json:", e);
+      await logDiagnostic({
+        stage: "log_analysis",
+        outcome: "error",
+        modelResponded: true,
+        errorType: e?.constructor?.name || e?.name || "Error",
+        language,
+        username,
+      });
     }
     console.log(`[analyze] stage=responding_to_client at +${Date.now() - handlerStartedAt}мс`);
+    await logDiagnostic({
+      stage: "request",
+      outcome: "ok",
+      durationMs: Date.now() - handlerStartedAt,
+      modelResponded: true,
+      language,
+      username,
+    });
     res.json({ result: analysis, runsCount, monthlyRunsCount });
   } catch (e) {
+    const durationMs = Date.now() - handlerStartedAt;
     console.error(
-      `[analyze] stage=handler_failed at +${Date.now() - handlerStartedAt}мс — modelSucceeded=${modelSucceeded} ` +
+      `[analyze] stage=handler_failed at +${durationMs}мс — modelSucceeded=${modelSucceeded} ` +
         `(true означает, что AI Router уже успешно ответил, и сбой — в учёте прогона/логировании, не в самой модели)`
     );
     console.error("AI Router analyze failed:", e.status || "", e.message, e.error || "");
+    await logDiagnostic({
+      stage: "request",
+      outcome: "error",
+      durationMs,
+      httpStatus: e?.status ?? null,
+      errorType: e?.constructor?.name || e?.name || "Error",
+      modelResponded: modelSucceeded,
+      language,
+      username,
+    });
     // Прогон НЕ списывается — increment выше выполняется только при успехе.
     // Статус намеренно 500, не 502/503 — см. комментарий в articles.js:
     // на проде подтверждено (curl -v), что VibeCode nginx перехватывает

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import fs from "fs/promises";
 import { getAllLogs } from "../lib/analyticsStore.js";
+import { getAllDiagnostics } from "../lib/diagnosticsStore.js";
 import { ANALYSIS_LOG_FILE } from "../lib/store.js";
 
 const router = Router();
@@ -73,7 +74,36 @@ function lastAttemptPerFile(logs) {
   return [...latest.values()];
 }
 
-function statsPage(logs) {
+// Технический журнал этапов /api/analyze (успехи и сбои) — см.
+// diagnosticsStore.js. Никогда не содержит текста документов/ответа
+// модели/цитат — только служебные метаданные, поэтому безопасно выводить
+// прямо в HTML как есть (через escapeHtml, как и остальные поля).
+function diagnosticsRows(diagnostics) {
+  return (
+    diagnostics
+      .slice(-200)
+      .reverse()
+      .map((d) => {
+        const errorTitle = d.outcome === "error" && d.errorType ? ` title="${escapeHtml(d.errorType)}"` : "";
+        const outcomeStyle = d.outcome === "error" ? "color:#a32d2d;font-weight:600" : "color:#2d8a3e";
+        return `<tr>
+          <td>${escapeHtml(d.timestamp)}</td>
+          <td>${escapeHtml(d.stage)}</td>
+          <td style="${outcomeStyle}"${errorTitle}>${escapeHtml(d.outcome)}</td>
+          <td>${d.durationMs ?? "—"}</td>
+          <td>${d.httpStatus ?? "—"}</td>
+          <td${errorTitle} style="cursor:${errorTitle ? "help" : "default"}">${escapeHtml(d.errorType || "—")}</td>
+          <td>${escapeHtml(d.finishReason || "—")}</td>
+          <td>${d.modelResponded ? "да" : "нет"}</td>
+          <td>${escapeHtml(d.language || "—")}</td>
+          <td>${escapeHtml(d.username || "—")}</td>
+        </tr>`;
+      })
+      .join("") || `<tr><td colspan="10">Нет данных</td></tr>`
+  );
+}
+
+function statsPage(logs, diagnostics) {
   const byUser = new Map();
   let totalTokens = 0;
 
@@ -192,6 +222,15 @@ function statsPage(logs) {
     <thead><tr><th>Дата/время</th><th>Имя</th><th>Язык</th><th>Файл</th><th>HVA</th><th>Токены</th></tr></thead>
     <tbody>${recentRows}</tbody>
   </table>
+
+  <h2>Технические ошибки и этапы выполнения (до 200)</h2>
+  <table>
+    <thead><tr>
+      <th>Дата/время</th><th>Этап</th><th>Исход</th><th>Длительность, мс</th><th>HTTP</th>
+      <th>Тип ошибки</th><th>finish_reason</th><th>Ответ модели</th><th>Язык</th><th>Пользователь</th>
+    </tr></thead>
+    <tbody>${diagnosticsRows(diagnostics)}</tbody>
+  </table>
 </body></html>`;
 }
 
@@ -213,7 +252,8 @@ router.post("/admin/stats", async (req, res) => {
     return res.status(401).send(passwordForm(true));
   }
   const logs = await getAllLogs();
-  res.send(statsPage(logs));
+  const diagnostics = await getAllDiagnostics();
+  res.send(statsPage(logs, diagnostics));
 });
 
 // Выгрузка сырого data/analysis-log.jsonl для n8n/скриптов — дёргается
