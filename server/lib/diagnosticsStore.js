@@ -65,6 +65,11 @@ export async function logDiagnostic(entry) {
       const all = await readAll();
       all.push({
         timestamp: new Date().toISOString(),
+        // Общий для всех записей одного /api/analyze — позволяет связать
+        // ai_router_request/json_parse_failed/log_analysis/request в единую
+        // историю одного прогона без опоры на совпадение времени/пользователя
+        // (ненадёжно при параллельных запросах от разных редакторов).
+        requestId: entry.requestId || null,
         stage: entry.stage || "unknown",
         outcome: entry.outcome === "error" ? "error" : "ok",
         durationMs: Number.isFinite(entry.durationMs) ? Math.round(entry.durationMs) : null,
@@ -73,6 +78,12 @@ export async function logDiagnostic(entry) {
         finishReason: entry.finishReason || null,
         modelResponded: Boolean(entry.modelResponded),
         contentLength: Number.isFinite(entry.contentLength) ? entry.contentLength : null,
+        // Длина документов В СЛОВАХ (числа, не текст) — чтобы проверить
+        // гипотезу "длинные статьи чаще упираются в тайм-аут", не делая вид,
+        // что это уже доказано (см. обсуждение — могла быть и нагрузка на
+        // роутер, а не объём текста).
+        draftWords: Number.isFinite(entry.draftWords) ? entry.draftWords : null,
+        finalWords: Number.isFinite(entry.finalWords) ? entry.finalWords : null,
         language: entry.language || null,
         username: entry.username || null,
       });

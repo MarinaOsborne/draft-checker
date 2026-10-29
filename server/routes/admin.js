@@ -86,8 +86,14 @@ function diagnosticsRows(diagnostics) {
       .map((d) => {
         const errorTitle = d.outcome === "error" && d.errorType ? ` title="${escapeHtml(d.errorType)}"` : "";
         const outcomeStyle = d.outcome === "error" ? "color:#a32d2d;font-weight:600" : "color:#2d8a3e";
+        // Показываем только первые 8 символов UUID (как у git-хэшей) — этого
+        // достаточно, чтобы глазами сгруппировать строки одного requestId в
+        // пределах таблицы из 200 записей; полный id — в title для копирования.
+        const shortId = d.requestId ? d.requestId.slice(0, 8) : "—";
+        const idTitle = d.requestId ? ` title="${escapeHtml(d.requestId)}"` : "";
         return `<tr>
           <td>${escapeHtml(d.timestamp)}</td>
+          <td${idTitle} style="cursor:${d.requestId ? "help" : "default"};font-family:monospace">${escapeHtml(shortId)}</td>
           <td>${escapeHtml(d.stage)}</td>
           <td style="${outcomeStyle}"${errorTitle}>${escapeHtml(d.outcome)}</td>
           <td>${d.durationMs ?? "—"}</td>
@@ -95,11 +101,13 @@ function diagnosticsRows(diagnostics) {
           <td${errorTitle} style="cursor:${errorTitle ? "help" : "default"}">${escapeHtml(d.errorType || "—")}</td>
           <td>${escapeHtml(d.finishReason || "—")}</td>
           <td>${d.modelResponded ? "да" : "нет"}</td>
+          <td>${d.draftWords ?? "—"}</td>
+          <td>${d.finalWords ?? "—"}</td>
           <td>${escapeHtml(d.language || "—")}</td>
           <td>${escapeHtml(d.username || "—")}</td>
         </tr>`;
       })
-      .join("") || `<tr><td colspan="10">Нет данных</td></tr>`
+      .join("") || `<tr><td colspan="13">Нет данных</td></tr>`
   );
 }
 
@@ -226,8 +234,9 @@ function statsPage(logs, diagnostics) {
   <h2>Технические ошибки и этапы выполнения (до 200)</h2>
   <table>
     <thead><tr>
-      <th>Дата/время</th><th>Этап</th><th>Исход</th><th>Длительность, мс</th><th>HTTP</th>
-      <th>Тип ошибки</th><th>finish_reason</th><th>Ответ модели</th><th>Язык</th><th>Пользователь</th>
+      <th>Дата/время</th><th>ID запроса</th><th>Этап</th><th>Исход</th><th>Длительность, мс</th><th>HTTP</th>
+      <th>Тип ошибки</th><th>finish_reason</th><th>Ответ модели</th><th>Слов (черновик)</th><th>Слов (финал)</th>
+      <th>Язык</th><th>Пользователь</th>
     </tr></thead>
     <tbody>${diagnosticsRows(diagnostics)}</tbody>
   </table>

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { randomUUID } from "crypto";
 import { requirePin } from "../middleware/requirePin.js";
 import {
   getRuns,
@@ -63,6 +64,15 @@ router.post("/analyze", requirePin, async (req, res) => {
     if (!res.writableEnded) clientDisconnected = true;
   });
 
+  // Один requestId на весь /api/analyze — проставляется во все диагностические
+  // записи этого прогона (включая те, что пишет vibeAiClient.js), чтобы в
+  // /admin/stats можно было собрать полную историю одного конкретного
+  // анализа по одному значению, а не гадать по совпадению времени/пользователя
+  // (ненадёжно при параллельных запросах от разных редакторов).
+  const requestId = randomUUID();
+  const draftWords = draftText.trim() ? draftText.trim().split(/\s+/).length : 0;
+  const finalWords = finalText.trim() ? finalText.trim().split(/\s+/).length : 0;
+
   const handlerStartedAt = Date.now();
   let modelSucceeded = false;
   try {
@@ -72,6 +82,7 @@ router.post("/analyze", requirePin, async (req, res) => {
       language,
       draftLinks: Array.isArray(draftLinks) ? draftLinks : [],
       finalLinks: Array.isArray(finalLinks) ? finalLinks : [],
+      requestId,
     });
     modelSucceeded = true;
     console.log(`[analyze] stage=model_succeeded at +${Date.now() - handlerStartedAt}мс — верхняя граница перед учётом прогона`);
@@ -120,6 +131,9 @@ router.post("/analyze", requirePin, async (req, res) => {
         errorType: e?.constructor?.name || e?.name || "Error",
         language,
         username,
+        requestId,
+        draftWords,
+        finalWords,
       });
     }
 
@@ -155,6 +169,9 @@ router.post("/analyze", requirePin, async (req, res) => {
         errorType: e?.constructor?.name || e?.name || "Error",
         language,
         username,
+        requestId,
+        draftWords,
+        finalWords,
       });
     }
     console.log(`[analyze] stage=responding_to_client at +${Date.now() - handlerStartedAt}мс`);
@@ -165,6 +182,9 @@ router.post("/analyze", requirePin, async (req, res) => {
       modelResponded: true,
       language,
       username,
+      requestId,
+      draftWords,
+      finalWords,
     });
     res.json({ result: analysis, runsCount, monthlyRunsCount });
   } catch (e) {
@@ -183,6 +203,9 @@ router.post("/analyze", requirePin, async (req, res) => {
       modelResponded: modelSucceeded,
       language,
       username,
+      requestId,
+      draftWords,
+      finalWords,
     });
     // Прогон НЕ списывается — increment выше выполняется только при успехе.
     // Статус намеренно 500, не 502/503 — см. комментарий в articles.js:

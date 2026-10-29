@@ -336,8 +336,18 @@ function formatLinks(links) {
   return links.map((l) => `- ${l.url}${l.text ? ` (anchor text: "${l.text}")` : ""}`).join("\n");
 }
 
-export async function analyzeArticle({ draftText, finalText, language, draftLinks, finalLinks }) {
+// Для диагностики (есть ли закономерность "длинные статьи чаще дают
+// тайм-аут") — считаем словами, той же эвристикой, что и server/routes/
+// parse.js, чтобы цифры в /admin/stats совпадали с тем, что редактор видит
+// в интерфейсе как "N words". Это ЧИСЛО, не сам текст.
+function wordCount(text) {
+  return text && text.trim() ? text.trim().split(/\s+/).length : 0;
+}
+
+export async function analyzeArticle({ draftText, finalText, language, draftLinks, finalLinks, requestId }) {
   const model = process.env.VIBE_AI_MODEL || "bitrix/bitrixgpt-5.5";
+  const draftWords = wordCount(draftText);
+  const finalWords = wordCount(finalText);
   const languageName = LANGUAGE_NAMES[language] || language;
   const userMessage = `Target language of the FINAL TEXT: ${languageName} (code: ${language})
 Write human_value_added.summary and all ai_search_readiness recommendations in ${languageName}.
@@ -391,6 +401,9 @@ ${formatLinks(finalLinks)}`;
       errorType: e?.constructor?.name || e?.name || "Error",
       modelResponded: false,
       language,
+      requestId,
+      draftWords,
+      finalWords,
     });
     throw e;
   }
@@ -408,6 +421,9 @@ ${formatLinks(finalLinks)}`;
     modelResponded: true,
     contentLength: text ? text.length : 0,
     language,
+    requestId,
+    draftWords,
+    finalWords,
   });
 
   if (!text) {
@@ -420,6 +436,9 @@ ${formatLinks(finalLinks)}`;
       modelResponded: true,
       contentLength: 0,
       language,
+      requestId,
+      draftWords,
+      finalWords,
     });
     throw new Error("AI Router не вернул текстовый ответ");
   }
@@ -438,6 +457,9 @@ ${formatLinks(finalLinks)}`;
       contentLength: text.length,
       errorType: e?.constructor?.name || e?.name || "SyntaxError",
       language,
+      requestId,
+      draftWords,
+      finalWords,
     });
     throw e;
   }
