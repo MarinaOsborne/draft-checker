@@ -2,7 +2,10 @@ import { promises as fs } from "fs";
 import path from "path";
 
 const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), "data");
-const LOG_FILE = path.join(DATA_DIR, "analytics.json");
+// Экспортируется для /admin/export-analytics и /admin/restore-data (резервная
+// копия перед переключением DATA_DIR на постоянный том) — та же логика, что
+// ANALYSIS_LOG_FILE в store.js.
+export const LOG_FILE = path.join(DATA_DIR, "analytics.json");
 
 let writeQueue = Promise.resolve();
 

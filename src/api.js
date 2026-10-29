@@ -115,10 +115,19 @@ export async function resetRunCount(language, filename) {
   });
 }
 
-export async function analyzeArticle({ draftText, finalText, language, finalFilename, draftLinks, finalLinks }) {
+// Асинхронный анализ: start отдаёт jobId почти мгновенно (сама генерация
+// идёт в фоне на сервере), дальше опрашиваем статус отдельно — см.
+// pollAnalysisStatus в App.jsx. Старый синхронный analyzeArticle (один
+// запрос, ответ только после полного завершения) мог растягиваться на
+// десятки секунд и упирался в тайм-аут гейтвея платформы — см. CLAUDE.md.
+export async function startAnalysis({ draftText, finalText, language, finalFilename, draftLinks, finalLinks }) {
   return request("/api/analyze", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ draftText, finalText, language, finalFilename, draftLinks, finalLinks }),
   });
+}
+
+export async function getAnalysisStatus(jobId) {
+  return request(`/api/analyze/${encodeURIComponent(jobId)}`);
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import PinScreen from "./components/PinScreen.jsx";
 import Header from "./components/Header.jsx";
 import ArticlePicker from "./components/ArticlePicker.jsx";
@@ -13,7 +13,8 @@ import {
   getArticleContent,
   getRunCount,
   resetRunCount,
-  analyzeArticle,
+  startAnalysis,
+  getAnalysisStatus,
   getMonthlyStatus,
   clearPin,
   isLoggedIn,
@@ -22,6 +23,42 @@ import { LANGS, MAX_RUNS, MAX_MONTHLY_RUNS, DARK } from "./constants.js";
 import { getTranslations, formatDate } from "./i18n.js";
 
 const EMPTY_FILE = { file: null, text: "", wordCount: 0, links: [] };
+
+// Переживает обновление страницы (в отличие от React state) — чтобы
+// GET /api/analyze/:jobId можно было доспросить после F5, пока задание ещё
+// выполняется в фоне на сервере или уже готово, но ответ пока не долетел.
+const ACTIVE_JOB_KEY = "vissarion_active_job";
+const POLL_INTERVAL_MS = 2000;
+// Чуть больше серверного порога "задание потеряно" (см. JOB_STALE_THRESHOLD_MS
+// в server/lib/jobsStore.js) — сервер должен сам перевести статус в "lost"
+// первым; этот потолок — подстраховка на случай, если опрос почему-то не
+// получил ни одного ответа вовсе.
+const CLIENT_POLL_CEILING_MS = 6 * 60 * 1000;
+
+function readActiveJob() {
+  try {
+    const raw = localStorage.getItem(ACTIVE_JOB_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeActiveJob(data) {
+  try {
+    localStorage.setItem(ACTIVE_JOB_KEY, JSON.stringify(data));
+  } catch {
+    // приватный режим браузера и т.п. — не критично, просто не переживёт refresh
+  }
+}
+
+function clearActiveJob() {
+  try {
+    localStorage.removeItem(ACTIVE_JOB_KEY);
+  } catch {
+    // не критично
+  }
+}
 
 export default function App() {
   const [authenticated, setAuthenticated] = useState(() => isLoggedIn());
@@ -45,6 +82,10 @@ export default function App() {
   const exhausted = runsCount >= MAX_RUNS;
   const bothReady = Boolean(draft.text) && Boolean(final.text);
   const isAdmin = new URLSearchParams(window.location.search).get("admin") === "true";
+  // jobId опрашиваемого сейчас задания — в ref, а не в state: должен быть
+  // виден синхронно внутри самого себя (рекурсивный setTimeout), и служит
+  // флагом отмены, если пользователь переключил язык/статью посреди опроса.
+  const pollingJobIdRef = useRef(null);
 
   useEffect(() => {
     if (!authenticated) return;
@@ -78,6 +119,43 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authenticated, activeLang, final.file]);
 
+  // Восстановление после обновления страницы: jobId лежит в localStorage
+  // (переживает F5, в отличие от React state), поэтому сразу после логина
+  // можно доспросить задание, которое выполнялось или уже завершилось, пока
+  // вкладка была закрыта/перезагружена. Текст статьи для DiffView при этом
+  // перезапрашивается заново через getArticleContent — сам текст нигде не
+  // хранился (ни в localStorage, ни на сервере в задании), только итоговый
+  // отчёт (result) и метаданные.
+  useEffect(() => {
+    if (!authenticated) return;
+    const saved = readActiveJob();
+    if (!saved || !saved.jobId) return;
+
+    (async () => {
+      if (saved.language && saved.language !== activeLang) setActiveLang(saved.language);
+      if (saved.articleId) {
+        setSelectedArticleId(saved.articleId);
+        setLoadingContent(true);
+        try {
+          const content = await getArticleContent(saved.articleId, saved.language || activeLang);
+          const fileRef = { name: content.title };
+          setDraft({ file: fileRef, text: content.draft.text, wordCount: content.draft.wordCount, links: content.draft.links });
+          setFinal({ file: fileRef, text: content.final.text, wordCount: content.final.wordCount, links: content.final.links });
+        } catch {
+          // Не получилось восстановить текст для DiffView (например, статью
+          // удалили из таблицы) — не критично, сам отчёт из задания всё
+          // равно попробуем получить ниже.
+        } finally {
+          setLoadingContent(false);
+        }
+      }
+      setAnalyzing(true);
+      pollingJobIdRef.current = saved.jobId;
+      pollJob(saved.jobId);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authenticated]);
+
   const ERROR_CODE_KEYS = {
     bad_request: "badRequest",
     analyze_failed: "analyzeFailed",
@@ -87,6 +165,8 @@ export default function App() {
     sheet_unavailable: "sheetUnavailable",
     docs_unavailable: "docsUnavailable",
     article_not_found: "articleNotFound",
+    server_busy: "serverBusy",
+    job_lost: "jobLost",
   };
 
   function handleAuthError(e) {
@@ -99,7 +179,74 @@ export default function App() {
     setError(key ? t.errors[key] : e.message);
   }
 
+  // Рекурсивный опрос статуса задания (а не setInterval) — следующий запрос
+  // планируется только после того, как предыдущий действительно завершился,
+  // так что опросы никогда не накладываются друг на друга. pollingJobIdRef
+  // одновременно служит и источником истины "что сейчас опрашиваем", и
+  // флагом отмены: если он поменялся (пользователь переключил язык/статью)
+  // или стал null, функция просто перестаёт обновлять состояние — тихо,
+  // без ошибки.
+  async function pollJob(jobId, startedAt = Date.now()) {
+    if (pollingJobIdRef.current !== jobId) return;
+
+    if (Date.now() - startedAt > CLIENT_POLL_CEILING_MS) {
+      pollingJobIdRef.current = null;
+      clearActiveJob();
+      setAnalyzing(false);
+      setError(t.errors.jobLost);
+      return;
+    }
+
+    let status;
+    try {
+      status = await getAnalysisStatus(jobId);
+    } catch (e) {
+      if (pollingJobIdRef.current !== jobId) return;
+      if (e.status === 401) {
+        handleAuthError(e);
+        return;
+      }
+      if (e.code === "job_not_found") {
+        pollingJobIdRef.current = null;
+        clearActiveJob();
+        setAnalyzing(false);
+        setError(t.errors.jobLost);
+        return;
+      }
+      // Временный сбой самого опроса (не статуса задания) — пробуем ещё раз
+      // на следующем тике, не сдаёмся с первого раза.
+      setTimeout(() => pollJob(jobId, startedAt), POLL_INTERVAL_MS);
+      return;
+    }
+
+    if (pollingJobIdRef.current !== jobId) return;
+
+    if (status.status === "pending") {
+      setTimeout(() => pollJob(jobId, startedAt), POLL_INTERVAL_MS);
+      return;
+    }
+
+    pollingJobIdRef.current = null;
+    clearActiveJob();
+    setAnalyzing(false);
+
+    if (status.status === "done") {
+      setResult(status.result);
+      setRunsCount(status.runsCount);
+      if (status.monthlyRunsCount >= MAX_MONTHLY_RUNS) setMonthlyExhausted(true);
+      setShowResult(true);
+      return;
+    }
+
+    // status.status === "error" | "lost"
+    const key = ERROR_CODE_KEYS[status.code];
+    setError(key ? t.errors[key] : status.error || t.errors.analyzeFailed);
+  }
+
   async function handleArticleSelect(articleId) {
+    pollingJobIdRef.current = null;
+    clearActiveJob();
+    setAnalyzing(false);
     setError(null);
     setShowResult(false);
     setResult(null);
@@ -120,6 +267,9 @@ export default function App() {
   }
 
   function handleLangChange(lang) {
+    pollingJobIdRef.current = null;
+    clearActiveJob();
+    setAnalyzing(false);
     setActiveLang(lang);
     setShowResult(false);
     setResult(null);
@@ -136,7 +286,7 @@ export default function App() {
     setAnalyzing(true);
     setError(null);
     try {
-      const res = await analyzeArticle({
+      const { jobId } = await startAnalysis({
         draftText: draft.text,
         finalText: final.text,
         language: activeLang,
@@ -144,11 +294,11 @@ export default function App() {
         draftLinks: draft.links,
         finalLinks: final.links,
       });
-      setResult(res.result);
-      setRunsCount(res.runsCount);
-      if (res.monthlyRunsCount >= MAX_MONTHLY_RUNS) setMonthlyExhausted(true);
-      setShowResult(true);
+      pollingJobIdRef.current = jobId;
+      writeActiveJob({ jobId, articleId: selectedArticleId, language: activeLang });
+      pollJob(jobId);
     } catch (e) {
+      setAnalyzing(false);
       if (e.code === "limit_exceeded") {
         setRunsCount(MAX_RUNS);
       } else if (e.code === "monthly_limit_exceeded") {
@@ -157,8 +307,6 @@ export default function App() {
       } else {
         handleAuthError(e);
       }
-    } finally {
-      setAnalyzing(false);
     }
   }
 

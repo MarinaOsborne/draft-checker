@@ -1,20 +1,43 @@
 import { Router } from "express";
 import { randomUUID } from "crypto";
 import { requirePin } from "../middleware/requirePin.js";
-import {
-  getRuns,
-  incrementRuns,
-  getMonthlyRuns,
-  incrementMonthlyRuns,
-  nextMonthlyResetDate,
-  saveAnalysisRecord,
-} from "../lib/store.js";
+import { getRuns, incrementRuns, getMonthlyRuns, incrementMonthlyRuns, nextMonthlyResetDate, saveAnalysisRecord } from "../lib/store.js";
 import { analyzeArticle } from "../lib/vibeAiClient.js";
 import { logAnalysis } from "../lib/analyticsStore.js";
 import { logDiagnostic } from "../lib/diagnosticsStore.js";
+import {
+  fingerprintFor,
+  claimOrGetExisting,
+  releaseLock,
+  createPendingJob,
+  writeJobDone,
+  writeJobError,
+  getJob,
+  pruneOldJobs,
+} from "../lib/jobsStore.js";
 import { MAX_RUNS, MAX_MONTHLY_RUNS } from "../lib/constants.js";
 
 const router = Router();
+
+// Потолок одновременно выполняющихся заданий НА ЭТОТ ПРОЦЕСС — защищает и
+// сам процесс, и (косвенно) AI Router от всплеска нагрузки. Если окажется,
+// что VibeCode всё же поднимает несколько экземпляров, каждый считает
+// независимо — реальный потолок может быть выше в N раз; для внутреннего
+// инструмента на несколько редакторов это приемлемо (см. задачу).
+const MAX_CONCURRENT_JOBS = 5;
+let activeJobCount = 0;
+
+// Разовая уборка старых заданий/протухших блокировок — не завязана на то,
+// заходит ли кто-то в /admin, иначе data/jobs росла бы без присмотра, пока
+// никто не анализирует статьи.
+setInterval(() => {
+  pruneOldJobs().catch((e) => console.error("pruneOldJobs упал (не критично):", e));
+}, 30 * 60 * 1000).unref();
+
+const ERROR_MESSAGES = {
+  ai_unavailable: "AI Router is not responding",
+  analyze_failed: "Не удалось получить оценку от AI Router VibeCode",
+};
 
 router.post("/analyze", requirePin, async (req, res) => {
   const { draftText, finalText, language, finalFilename, draftLinks, finalLinks } = req.body || {};
@@ -48,48 +71,100 @@ router.post("/analyze", requirePin, async (req, res) => {
     });
   }
 
-  // Платформа (гейтвей VibeCode) может оборвать соединение с браузером по
-  // тайм-ауту раньше, чем этот запрос успеет завершиться (особенно с учётом
-  // ретраев ниже) — пользователь увидит 503, а Node-процесс тем временем
-  // доработает и получит успешный ответ от AI Router. Раньше в этот момент
-  // прогон всё равно списывался, хотя клиент уже не получил результат.
-  // Флаг ниже отслеживает обрыв именно СЕТЕВОГО соединения (res.on("close")
-  // срабатывает, когда сокет закрылся раньше, чем res.end()/res.json()
-  // успел записать ответ) — и мы пропускаем increment, если клиент уже
-  // отключился. req.on("close") здесь НЕ работает так же надёжно — было
-  // проверено на практике (тестовый запрос с обрывом соединения всё равно
-  // списывал прогон, пока не заменили на res.on("close")).
-  let clientDisconnected = false;
-  res.on("close", () => {
-    if (!res.writableEnded) clientDisconnected = true;
-  });
+  if (activeJobCount >= MAX_CONCURRENT_JOBS) {
+    return res.status(429).json({
+      error: "Сервер сейчас обрабатывает максимум одновременных анализов. Попробуйте через минуту.",
+      code: "server_busy",
+    });
+  }
+  // Резервируем место СРАЗУ, синхронно с проверкой выше (между ними нет ни
+  // одного await) — иначе несколько параллельных запросов могут пройти
+  // проверку одновременно, пока ни один ещё не успел увеличить счётчик
+  // (это реальная гонка, найдена и исправлена при тестировании: await'ы
+  // ниже — claimOrGetExisting/createPendingJob — дают возможность другим
+  // запросам вклиниться, если инкремент стоит после них). Если в итоге
+  // настоящее фоновое задание не запускается (см. return'ы ниже) —
+  // немедленно освобождаем резерв.
+  activeJobCount += 1;
 
-  // Один requestId на весь /api/analyze — проставляется во все диагностические
-  // записи этого прогона (включая те, что пишет vibeAiClient.js), чтобы в
-  // /admin/stats можно было собрать полную историю одного конкретного
-  // анализа по одному значению, а не гадать по совпадению времени/пользователя
-  // (ненадёжно при параллельных запросах от разных редакторов).
+  // Дедуп: одинаковый черновик+финал+язык+файл+пользователь, пока предыдущее
+  // задание ещё активно — получает ТОТ ЖЕ jobId, а не второе задание (см.
+  // задачу, требование 5). Как только задание завершится (успехом или
+  // ошибкой) и освободит блокировку, то же самое содержимое можно запускать
+  // заново как совершенно новое задание — дедуп не постоянный, а только на
+  // время реальной работы.
+  const fingerprint = fingerprintFor({ username, language, finalFilename, draftText, finalText });
+  const claim = await claimOrGetExisting(fingerprint);
+  if (!claim.jobId) {
+    activeJobCount -= 1;
+    return res.status(429).json({ error: "Повторите запрос через несколько секунд.", code: "server_busy" });
+  }
+  if (!claim.claimed) {
+    activeJobCount -= 1;
+    return res.json({ jobId: claim.jobId });
+  }
+
+  const jobId = claim.jobId;
   const requestId = randomUUID();
   const draftWords = draftText.trim() ? draftText.trim().split(/\s+/).length : 0;
   const finalWords = finalText.trim() ? finalText.trim().split(/\s+/).length : 0;
 
+  await createPendingJob(jobId, { username, language, finalFilename });
+  res.json({ jobId });
+
+  runAnalysisJob({
+    jobId,
+    fingerprint,
+    requestId,
+    draftText,
+    finalText,
+    language,
+    finalFilename,
+    draftLinks: Array.isArray(draftLinks) ? draftLinks : [],
+    finalLinks: Array.isArray(finalLinks) ? finalLinks : [],
+    username,
+    draftWords,
+    finalWords,
+  }).finally(() => {
+    activeJobCount -= 1;
+  });
+});
+
+// Тело — та же самая логика, что раньше была синхронной частью этого
+// хендлера (вызов analyzeArticle + списание прогона + сохранение
+// статистики), просто теперь не блокирует HTTP-ответ: клиент уже получил
+// jobId и узнаёт результат через GET /api/analyze/:jobId.
+async function runAnalysisJob({
+  jobId,
+  fingerprint,
+  requestId,
+  draftText,
+  finalText,
+  language,
+  finalFilename,
+  draftLinks,
+  finalLinks,
+  username,
+  draftWords,
+  finalWords,
+}) {
   const handlerStartedAt = Date.now();
   let modelSucceeded = false;
   try {
-    const { analysis, usage } = await analyzeArticle({
-      draftText,
-      finalText,
-      language,
-      draftLinks: Array.isArray(draftLinks) ? draftLinks : [],
-      finalLinks: Array.isArray(finalLinks) ? finalLinks : [],
-      requestId,
-    });
+    const { analysis, usage } = await analyzeArticle({ draftText, finalText, language, draftLinks, finalLinks, requestId });
     modelSucceeded = true;
-    console.log(`[analyze] stage=model_succeeded at +${Date.now() - handlerStartedAt}мс — верхняя граница перед учётом прогона`);
-    if (clientDisconnected) {
-      console.warn("Клиент отключился до получения ответа — прогон не списан.");
-      return;
-    }
+    console.log(`[analyze] job=${jobId} stage=model_succeeded at +${Date.now() - handlerStartedAt}мс`);
+
+    // ВАЖНО по порядку (см. задачу, требование 2): сначала пишем готовый
+    // результат в файл задания, и только ПОСЛЕ этого списываем попытку.
+    // Если процесс упадёт между этими двумя шагами — отчёт уже на диске
+    // (пользователь его получит), максимум не спишется попытка за этот
+    // прогон. Абсолютной гарантии ровно одного списания без транзакционного
+    // хранилища дать нельзя — см. ограничения в итоговом отчёте; но
+    // "недосписанная попытка" безвредна, а именно обратного ("списано, но
+    // отчёта нет") эта последовательность и призвана избежать.
+    await writeJobDone(jobId, analysis);
+
     const runsCount = await incrementRuns(language, finalFilename);
     const monthlyRunsCount = await incrementMonthlyRuns();
 
@@ -102,12 +177,6 @@ router.post("/analyze", requirePin, async (req, res) => {
         verdict: analysis.verdict,
         finalScore: analysis.final_article_quality,
         draftScore: analysis.ai_draft_quality,
-        // Обоснования, которые модель обязана давать под каждый холистический
-        // балл (см. system-промпт в vibeAiClient.js) — раньше терялись
-        // (печатались только в консоль сервера, к которой нет доступа на
-        // платформе). Без них нельзя было проверить, реально ли модель
-        // сопоставила счёт с текстом или "заякорилась" на правдоподобном
-        // числе — см. жалобу "+14 при изменении одного слова".
         draftScoreReasoning: analysis.ai_draft_quality_reasoning || "",
         finalScoreReasoning: analysis.final_article_quality_reasoning || "",
         runNumber: runsCount,
@@ -122,7 +191,6 @@ router.post("/analyze", requirePin, async (req, res) => {
         unnecessaryRewrites: analysis.unnecessary_rewrites,
       });
     } catch (e) {
-      // Не роняем прогон редактора из-за ошибки записи лога — только логируем.
       console.error("Не удалось сохранить запись в data/analysis-log.jsonl:", e);
       await logDiagnostic({
         stage: "save_analysis_record",
@@ -137,14 +205,6 @@ router.post("/analyze", requirePin, async (req, res) => {
       });
     }
 
-    // ВАЖНО: раньше этот вызов не был обёрнут в try/catch и стоял ДО
-    // res.json — если он падал (например, из-за гонки блокировки записи или
-    // нехватки места на диске под data/), исключение улетало в общий catch
-    // ниже уже ПОСЛЕ того, как AI Router успешно отработал и прогон был
-    // списан (incrementRuns выше) — пользователь в этом случае видел
-    // generic "AI Router failed", хотя анализ был полностью готов, а его
-    // попытка уже сгорела впустую. Изолируем ровно как saveAnalysisRecord
-    // выше, чтобы сбой статистики никогда не мешал отдать готовый результат.
     try {
       await logAnalysis({
         username,
@@ -174,7 +234,8 @@ router.post("/analyze", requirePin, async (req, res) => {
         finalWords,
       });
     }
-    console.log(`[analyze] stage=responding_to_client at +${Date.now() - handlerStartedAt}мс`);
+
+    console.log(`[analyze] job=${jobId} stage=job_done at +${Date.now() - handlerStartedAt}мс`);
     await logDiagnostic({
       stage: "request",
       outcome: "ok",
@@ -186,14 +247,16 @@ router.post("/analyze", requirePin, async (req, res) => {
       draftWords,
       finalWords,
     });
-    res.json({ result: analysis, runsCount, monthlyRunsCount });
   } catch (e) {
     const durationMs = Date.now() - handlerStartedAt;
     console.error(
-      `[analyze] stage=handler_failed at +${durationMs}мс — modelSucceeded=${modelSucceeded} ` +
+      `[analyze] job=${jobId} stage=job_failed at +${durationMs}мс — modelSucceeded=${modelSucceeded} ` +
         `(true означает, что AI Router уже успешно ответил, и сбой — в учёте прогона/логировании, не в самой модели)`
     );
     console.error("AI Router analyze failed:", e.status || "", e.message, e.error || "");
+    // Прогон НЕ списывается — increment выше выполняется только при успехе.
+    const errorCode = e.status === 502 ? "ai_unavailable" : "analyze_failed";
+    await writeJobError(jobId, errorCode);
     await logDiagnostic({
       stage: "request",
       outcome: "error",
@@ -207,20 +270,52 @@ router.post("/analyze", requirePin, async (req, res) => {
       draftWords,
       finalWords,
     });
-    // Прогон НЕ списывается — increment выше выполняется только при успехе.
-    // Статус намеренно 500, не 502/503 — см. комментарий в articles.js:
-    // на проде подтверждено (curl -v), что VibeCode nginx перехватывает
-    // именно 502 от апстрима (переписывает статус на 503 и обрывает тело,
-    // не досылая заявленный Content-Length), тогда как 500 проходит
-    // насквозь без изменений. Фронтенд всё равно берёт код ошибки из
-    // тела (body.code), а не из HTTP-статуса, так что на поведении для
-    // пользователя это никак не сказывается — только чинит доставку тела.
-    if (e.status === 502) {
-      res.status(500).json({ error: "AI Router is not responding", code: "ai_unavailable" });
-    } else {
-      res.status(500).json({ error: "Не удалось получить оценку от AI Router VibeCode", code: "analyze_failed" });
-    }
+  } finally {
+    await releaseLock(fingerprint).catch((e) => console.error("releaseLock упал (не критично):", e));
   }
+}
+
+router.get("/analyze/:jobId", requirePin, async (req, res) => {
+  let username = "";
+  try {
+    username = decodeURIComponent(req.headers["x-username"] || "").trim();
+  } catch {
+    username = "";
+  }
+
+  const job = await getJob(req.params.jobId);
+  if (!job) {
+    return res.status(404).json({ error: "Задание не найдено", code: "job_not_found" });
+  }
+  // Мягкая защита от случайного доступа к чужому отчёту — НЕ полноценная
+  // авторизация (X-Username полностью подделываем клиентом, как и везде в
+  // этом приложении, см. CLAUDE.md). Реальный барьер — непредсказуемость
+  // самого jobId (случайный UUID).
+  if (job.username && username && job.username !== username) {
+    return res.status(404).json({ error: "Задание не найдено", code: "job_not_found" });
+  }
+
+  if (job.status === "pending") {
+    return res.json({ status: "pending" });
+  }
+  if (job.status === "lost") {
+    return res.json({
+      status: "lost",
+      error: "Не удалось дождаться ответа — попробуйте запустить анализ заново.",
+      code: "job_lost",
+    });
+  }
+  if (job.status === "error") {
+    return res.json({
+      status: "error",
+      error: ERROR_MESSAGES[job.errorCode] || ERROR_MESSAGES.analyze_failed,
+      code: job.errorCode || "analyze_failed",
+    });
+  }
+
+  const runsCount = await getRuns(job.language, job.finalFilename);
+  const monthlyRunsCount = await getMonthlyRuns();
+  return res.json({ status: "done", result: job.result, runsCount, monthlyRunsCount });
 });
 
 export default router;

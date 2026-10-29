@@ -57,6 +57,8 @@ const dict = {
       sheetUnavailable: "Could not load the article list from the Google Sheet",
       docsUnavailable: "Could not load the article content from Google Docs",
       articleNotFound: "This article could not be found",
+      serverBusy: "The server is busy with other analyses right now. Try again in a minute.",
+      jobLost: "We could not get a response in time. Please run the analysis again.",
     },
     humanValueAdded: {
       heading: "Human Value Added",
@@ -140,6 +142,8 @@ const dict = {
       sheetUnavailable: "No se pudo cargar la lista de artículos desde Google Sheets",
       docsUnavailable: "No se pudo cargar el contenido del artículo desde Google Docs",
       articleNotFound: "No se encontró este artículo",
+      serverBusy: "El servidor está ocupado con otros análisis en este momento. Inténtalo de nuevo en un minuto.",
+      jobLost: "No pudimos obtener una respuesta a tiempo. Vuelve a ejecutar el análisis.",
     },
     humanValueAdded: {
       heading: "Valor humano añadido",
@@ -223,6 +227,8 @@ const dict = {
       sheetUnavailable: "Não foi possível carregar a lista de artigos do Google Sheets",
       docsUnavailable: "Não foi possível carregar o conteúdo do artigo do Google Docs",
       articleNotFound: "Este artigo não foi encontrado",
+      serverBusy: "O servidor está ocupado com outras análises no momento. Tente novamente em um minuto.",
+      jobLost: "Não conseguimos obter uma resposta a tempo. Execute a análise novamente.",
     },
     humanValueAdded: {
       heading: "Valor humano agregado",
@@ -306,6 +312,8 @@ const dict = {
       sheetUnavailable: "Die Artikelliste konnte nicht aus dem Google Sheet geladen werden",
       docsUnavailable: "Der Artikelinhalt konnte nicht aus Google Docs geladen werden",
       articleNotFound: "Dieser Artikel wurde nicht gefunden",
+      serverBusy: "Der Server ist gerade mit anderen Analysen beschäftigt. Bitte versuche es in einer Minute erneut.",
+      jobLost: "Wir konnten keine rechtzeitige Antwort erhalten. Bitte starte die Analyse erneut.",
     },
     humanValueAdded: {
       heading: "Menschlicher Mehrwert",
@@ -389,6 +397,8 @@ const dict = {
       sheetUnavailable: "Impossible de charger la liste des articles depuis Google Sheets",
       docsUnavailable: "Impossible de charger le contenu de l'article depuis Google Docs",
       articleNotFound: "Cet article est introuvable",
+      serverBusy: "Le serveur est occupé par d'autres analyses en ce moment. Réessayez dans une minute.",
+      jobLost: "Nous n'avons pas pu obtenir de réponse à temps. Relancez l'analyse.",
     },
     humanValueAdded: {
       heading: "Valeur humaine ajoutée",
@@ -472,6 +482,8 @@ const dict = {
       sheetUnavailable: "Makale listesi Google E-Tablolar'dan yüklenemedi",
       docsUnavailable: "Makale içeriği Google Dokümanlar'dan yüklenemedi",
       articleNotFound: "Bu makale bulunamadı",
+      serverBusy: "Sunucu şu anda başka analizlerle meşgul. Lütfen bir dakika sonra tekrar deneyin.",
+      jobLost: "Zamanında yanıt alamadık. Lütfen analizi tekrar çalıştırın.",
     },
     humanValueAdded: {
       heading: "İnsan Katkısı",
@@ -555,6 +567,8 @@ const dict = {
       sheetUnavailable: "Nie udało się wczytać listy artykułów z Arkuszy Google",
       docsUnavailable: "Nie udało się wczytać treści artykułu z Dokumentów Google",
       articleNotFound: "Nie znaleziono tego artykułu",
+      serverBusy: "Serwer jest teraz zajęty innymi analizami. Spróbuj ponownie za minutę.",
+      jobLost: "Nie udało się uzyskać odpowiedzi na czas. Uruchom analizę ponownie.",
     },
     humanValueAdded: {
       heading: "Wartość dodana przez człowieka",
@@ -638,6 +652,8 @@ const dict = {
       sheetUnavailable: "Không thể tải danh sách bài viết từ Google Trang tính",
       docsUnavailable: "Không thể tải nội dung bài viết từ Google Tài liệu",
       articleNotFound: "Không tìm thấy bài viết này",
+      serverBusy: "Máy chủ hiện đang bận với các phân tích khác. Vui lòng thử lại sau một phút.",
+      jobLost: "Chúng tôi không nhận được phản hồi kịp thời. Vui lòng chạy lại phân tích.",
     },
     humanValueAdded: {
       heading: "Giá trị con người đóng góp",
@@ -720,6 +736,8 @@ const dict = {
       sheetUnavailable: "Impossibile caricare l'elenco degli articoli da Google Sheets",
       docsUnavailable: "Impossibile caricare il contenuto dell'articolo da Google Docs",
       articleNotFound: "Questo articolo non è stato trovato",
+      serverBusy: "Il server è occupato con altre analisi in questo momento. Riprova tra un minuto.",
+      jobLost: "Non siamo riusciti a ottenere una risposta in tempo. Esegui di nuovo l'analisi.",
     },
     humanValueAdded: {
       heading: "Valore aggiunto umano",

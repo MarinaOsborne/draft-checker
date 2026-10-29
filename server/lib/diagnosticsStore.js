@@ -2,7 +2,8 @@ import { promises as fs } from "fs";
 import path from "path";
 
 const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), "data");
-const DIAGNOSTICS_FILE = path.join(DATA_DIR, "diagnostics.json");
+// Экспортируется для /admin/export-diagnostics и /admin/restore-data.
+export const DIAGNOSTICS_FILE = path.join(DATA_DIR, "diagnostics.json");
 
 // Ограниченный журнал, а не аудит-лог — старые записи вытесняются новыми,
 // чтобы файл не разрастался бесконечно (см. требование безопасности в

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import fs from "fs/promises";
-import { getAllLogs } from "../lib/analyticsStore.js";
-import { getAllDiagnostics } from "../lib/diagnosticsStore.js";
+import { getAllLogs, LOG_FILE as ANALYTICS_FILE } from "../lib/analyticsStore.js";
+import { getAllDiagnostics, DIAGNOSTICS_FILE } from "../lib/diagnosticsStore.js";
 import { ANALYSIS_LOG_FILE } from "../lib/store.js";
 
 const router = Router();
@@ -265,30 +265,84 @@ router.post("/admin/stats", async (req, res) => {
   res.send(statsPage(logs, diagnostics));
 });
 
-// Выгрузка сырого data/analysis-log.jsonl для n8n/скриптов — дёргается
-// curl'ом, не браузером, поэтому пароль в заголовке (X-Admin-Password), а не
-// в теле формы, и ответ — не HTML, а сам файл как есть (application/x-ndjson,
-// стандартный MIME для JSONL/NDJSON).
-router.post("/admin/export-analysis", async (req, res) => {
+function requireAdminHeader(req, res) {
   const expected = process.env.ADMIN_PASSWORD;
   if (!expected) {
-    return res.status(500).send("ADMIN_PASSWORD не задан на сервере — админ-панель отключена.");
+    res.status(500).send("ADMIN_PASSWORD не задан на сервере — админ-панель отключена.");
+    return false;
   }
-  const provided = req.headers["x-admin-password"];
-  if (provided !== expected) {
-    return res.status(401).send("Неверный пароль");
+  if (req.headers["x-admin-password"] !== expected) {
+    res.status(401).send("Неверный пароль");
+    return false;
   }
+  return true;
+}
+
+async function sendRawFile(res, filePath, emptyValue) {
   try {
-    const content = await fs.readFile(ANALYSIS_LOG_FILE, "utf8");
-    res.set("Content-Type", "application/x-ndjson; charset=utf-8");
+    const content = await fs.readFile(filePath, "utf8");
     res.send(content);
   } catch (e) {
-    if (e.code === "ENOENT") {
-      res.set("Content-Type", "application/x-ndjson; charset=utf-8");
-      return res.send("");
-    }
-    console.error("Не удалось прочитать data/analysis-log.jsonl:", e);
+    if (e.code === "ENOENT") return res.send(emptyValue);
+    console.error(`Не удалось прочитать ${filePath}:`, e);
     res.status(500).send("Ошибка чтения файла.");
+  }
+}
+
+// Выгрузка сырых файлов data/ для n8n/скриптов/резервной копии перед
+// переключением DATA_DIR на постоянный том — дёргаются curl'ом, не браузером,
+// поэтому пароль в заголовке (X-Admin-Password), а не в теле формы.
+router.post("/admin/export-analysis", async (req, res) => {
+  if (!requireAdminHeader(req, res)) return;
+  res.set("Content-Type", "application/x-ndjson; charset=utf-8");
+  await sendRawFile(res, ANALYSIS_LOG_FILE, "");
+});
+
+router.post("/admin/export-analytics", async (req, res) => {
+  if (!requireAdminHeader(req, res)) return;
+  res.set("Content-Type", "application/json; charset=utf-8");
+  await sendRawFile(res, ANALYTICS_FILE, "[]");
+});
+
+router.post("/admin/export-diagnostics", async (req, res) => {
+  if (!requireAdminHeader(req, res)) return;
+  res.set("Content-Type", "application/json; charset=utf-8");
+  await sendRawFile(res, DIAGNOSTICS_FILE, "[]");
+});
+
+// ВРЕМЕННЫЙ инструмент миграции — для одноразового переноса уже накопленных
+// данных на постоянный том при переключении DATA_DIR (см. задачу, требование
+// 5: "не допускать обнуления счётчиков при переходе на /data"). Принимает то,
+// что ранее забрали через export-*, и перезаписывает ими файлы по ТЕКУЩЕМУ
+// DATA_DIR (то есть уже новому, если DATA_DIR=/data на этом деплое). Лёгкая
+// проверка формы (массив/строка) — не полноценная валидация схемы, этого
+// достаточно, раз эндпоинт предназначен только для администратора и только
+// для содержимого, которое он сам только что выгрузил этими же export-*.
+// Стоит удалить (как и envProbes.js) после завершения миграции.
+router.post("/admin/restore-data", async (req, res) => {
+  if (!requireAdminHeader(req, res)) return;
+  const { analytics, analysisLog, diagnostics } = req.body || {};
+  const written = [];
+  try {
+    if (analytics !== undefined) {
+      if (!Array.isArray(analytics)) throw new Error("analytics должен быть массивом");
+      await fs.writeFile(ANALYTICS_FILE, JSON.stringify(analytics, null, 2), "utf8");
+      written.push("analytics");
+    }
+    if (analysisLog !== undefined) {
+      if (typeof analysisLog !== "string") throw new Error("analysisLog должен быть строкой (NDJSON)");
+      await fs.writeFile(ANALYSIS_LOG_FILE, analysisLog, "utf8");
+      written.push("analysisLog");
+    }
+    if (diagnostics !== undefined) {
+      if (!Array.isArray(diagnostics)) throw new Error("diagnostics должен быть массивом");
+      await fs.writeFile(DIAGNOSTICS_FILE, JSON.stringify(diagnostics, null, 2), "utf8");
+      written.push("diagnostics");
+    }
+    res.json({ ok: true, written });
+  } catch (e) {
+    console.error("Не удалось восстановить данные:", e);
+    res.status(400).json({ ok: false, error: e.message });
   }
 });
 

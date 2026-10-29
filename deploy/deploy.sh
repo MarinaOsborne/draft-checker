@@ -83,6 +83,14 @@ GOOGLE_SHEET_ID="${GOOGLE_SHEET_ID:-}"
 # экземпляров, фоновое выполнение после ответа). Оставь пустым на обычном
 # деплое — тогда эти эндпоинты не подключаются вообще.
 ENABLE_ENV_PROBES="${ENABLE_ENV_PROBES:-}"
+# Пусто по умолчанию — данные пишутся в process.cwd()+"/data" (сейчас это
+# /opt/app/data, не переживает деплой — подтверждено через /admin/env-check).
+# Переключай на /data (постоянный том, подтверждено тем же пробником) ТОЛЬКО
+# после того, как снята резервная копия текущих данных через
+# /admin/export-analytics, /admin/export-analysis, /admin/export-diagnostics
+# и восстановлена на новом месте через /admin/restore-data — иначе накопленные
+# счётчики/аналитика на момент переключения будут потеряны (см. CLAUDE.md).
+DATA_DIR="${DATA_DIR:-}"
 # Стамп коммита, который реально паковался — .git не входит в архив (см. ниже),
 # поэтому server/lib/version.js не может вызвать `git rev-parse` в рантайме на
 # проде; здесь мы всё ещё внутри репозитория, так что делаем это один раз тут
@@ -121,6 +129,7 @@ ADMIN_PASSWORD=$ADMIN_PASSWORD
 GOOGLE_SERVICE_ACCOUNT_KEY_BASE64=$GOOGLE_SERVICE_ACCOUNT_KEY_BASE64
 GOOGLE_SHEET_ID=$GOOGLE_SHEET_ID
 ENABLE_ENV_PROBES=$ENABLE_ENV_PROBES
+DATA_DIR=$DATA_DIR
 GIT_COMMIT=$GIT_COMMIT
 EOF
 ( cd "$WORK/stage" && npm ci --omit=dev --ignore-scripts >/dev/null ) || { echo "❌ npm ci упал"; exit 1; }
