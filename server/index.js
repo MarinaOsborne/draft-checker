@@ -11,6 +11,7 @@ import analyzeRoutes from "./routes/analyze.js";
 import healthRoutes from "./routes/health.js";
 import pingTestRoutes from "./routes/pingTest.js";
 import adminRoutes from "./routes/admin.js";
+import envProbesRoutes from "./routes/envProbes.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIST_DIR = path.join(__dirname, "..", "dist");
@@ -28,6 +29,15 @@ app.use("/api", analyzeRoutes);
 app.use("/api", healthRoutes);
 app.use("/api", pingTestRoutes);
 app.use(adminRoutes);
+// Временно, только на время проверки окружения VibeCode Galaxy — см.
+// server/routes/envProbes.js. Без ENABLE_ENV_PROBES=true роут вообще не
+// подключается (любой запрос к /admin/env-check* получит обычный 404), так
+// что отключить это можно без изменения кода, просто сняв переменную на
+// следующем деплое. Сам файл стоит удалить, когда вопрос окружения закроется.
+if (process.env.ENABLE_ENV_PROBES === "true") {
+  app.use(envProbesRoutes);
+  console.log("⚠️  ENABLE_ENV_PROBES=true — временные диагностические эндпоинты /admin/env-check* включены");
+}
 
 app.use(express.static(DIST_DIR));
 app.get(/^(?!\/api).*/, (req, res) => {

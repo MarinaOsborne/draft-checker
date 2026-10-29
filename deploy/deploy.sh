@@ -78,6 +78,11 @@ ADMIN_PASSWORD="${ADMIN_PASSWORD:-}"
 # статьи по Title недоступен — см. server/lib/googleClient.js и .env.example.
 GOOGLE_SERVICE_ACCOUNT_KEY_BASE64="${GOOGLE_SERVICE_ACCOUNT_KEY_BASE64:-}"
 GOOGLE_SHEET_ID="${GOOGLE_SHEET_ID:-}"
+# Временно — включает /admin/env-check* (см. server/routes/envProbes.js),
+# разовую проверку окружения VibeCode Galaxy (постоянный том /data, число
+# экземпляров, фоновое выполнение после ответа). Оставь пустым на обычном
+# деплое — тогда эти эндпоинты не подключаются вообще.
+ENABLE_ENV_PROBES="${ENABLE_ENV_PROBES:-}"
 # Стамп коммита, который реально паковался — .git не входит в архив (см. ниже),
 # поэтому server/lib/version.js не может вызвать `git rev-parse` в рантайме на
 # проде; здесь мы всё ещё внутри репозитория, так что делаем это один раз тут
@@ -115,6 +120,7 @@ VIBE_AI_BASE_URL=$VIBE_AI_BASE_URL
 ADMIN_PASSWORD=$ADMIN_PASSWORD
 GOOGLE_SERVICE_ACCOUNT_KEY_BASE64=$GOOGLE_SERVICE_ACCOUNT_KEY_BASE64
 GOOGLE_SHEET_ID=$GOOGLE_SHEET_ID
+ENABLE_ENV_PROBES=$ENABLE_ENV_PROBES
 GIT_COMMIT=$GIT_COMMIT
 EOF
 ( cd "$WORK/stage" && npm ci --omit=dev --ignore-scripts >/dev/null ) || { echo "❌ npm ci упал"; exit 1; }
