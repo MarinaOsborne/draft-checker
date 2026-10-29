@@ -289,39 +289,64 @@ async function sendRawFile(res, filePath, emptyValue) {
   }
 }
 
-// Выгрузка сырых файлов data/ для n8n/скриптов/резервной копии перед
-// переключением DATA_DIR на постоянный том — дёргаются curl'ом, не браузером,
-// поэтому пароль в заголовке (X-Admin-Password), а не в теле формы.
+// Выгрузка сырого data/analysis-log.jsonl для n8n/скриптов — постоянный
+// инструмент (не миграционный), поэтому не гейтится ENABLE_DATA_MIGRATION,
+// в отличие от export-analytics/export-diagnostics/restore-data ниже.
 router.post("/admin/export-analysis", async (req, res) => {
   if (!requireAdminHeader(req, res)) return;
   res.set("Content-Type", "application/x-ndjson; charset=utf-8");
   await sendRawFile(res, ANALYSIS_LOG_FILE, "");
 });
 
+// ВРЕМЕННЫЕ инструменты миграции — только для одноразового переноса уже
+// накопленных данных при переключении DATA_DIR на постоянный том (см.
+// задачу). Как и /admin/env-check*, подключены "по умолчанию выключено":
+// без ENABLE_DATA_MIGRATION=true эти три маршрута отвечают обычным 404 —
+// отключить после миграции можно без изменения кода, просто убрав
+// переменную (и из команды запуска, И из deploy/.env.deploy — см. ниже)
+// на следующем деплое. Сам файл стоит почистить от них, когда миграция
+// завершена и подтверждена.
+function requireMigrationEnabled(req, res) {
+  if (process.env.ENABLE_DATA_MIGRATION !== "true") {
+    res.status(404).send("Not found");
+    return false;
+  }
+  return true;
+}
+
 router.post("/admin/export-analytics", async (req, res) => {
+  if (!requireMigrationEnabled(req, res)) return;
   if (!requireAdminHeader(req, res)) return;
   res.set("Content-Type", "application/json; charset=utf-8");
   await sendRawFile(res, ANALYTICS_FILE, "[]");
 });
 
 router.post("/admin/export-diagnostics", async (req, res) => {
+  if (!requireMigrationEnabled(req, res)) return;
   if (!requireAdminHeader(req, res)) return;
   res.set("Content-Type", "application/json; charset=utf-8");
   await sendRawFile(res, DIAGNOSTICS_FILE, "[]");
 });
 
-// ВРЕМЕННЫЙ инструмент миграции — для одноразового переноса уже накопленных
-// данных на постоянный том при переключении DATA_DIR (см. задачу, требование
-// 5: "не допускать обнуления счётчиков при переходе на /data"). Принимает то,
-// что ранее забрали через export-*, и перезаписывает ими файлы по ТЕКУЩЕМУ
-// DATA_DIR (то есть уже новому, если DATA_DIR=/data на этом деплое). Лёгкая
-// проверка формы (массив/строка) — не полноценная валидация схемы, этого
-// достаточно, раз эндпоинт предназначен только для администратора и только
-// для содержимого, которое он сам только что выгрузил этими же export-*.
-// Стоит удалить (как и envProbes.js) после завершения миграции.
+// Принимает то, что ранее забрали через export-*, и перезаписывает ими файлы
+// по ТЕКУЩЕМУ DATA_DIR (то есть уже новому, если DATA_DIR=/data на этом
+// деплое). Требует явного { confirm: "REPLACE" } в теле — защита от
+// случайного повторного вызова (например, дубль отправки из скрипта/
+// curl-истории), которая бы молча затёрла то, что уже накопилось на новом
+// месте данными из более старой резервной копии. Лёгкая проверка формы
+// (массив/строка), не полноценная валидация схемы — этого достаточно, раз
+// эндпоинт только для администратора и только для содержимого, которое он
+// сам только что выгрузил этими же export-*.
 router.post("/admin/restore-data", async (req, res) => {
+  if (!requireMigrationEnabled(req, res)) return;
   if (!requireAdminHeader(req, res)) return;
-  const { analytics, analysisLog, diagnostics } = req.body || {};
+  const { analytics, analysisLog, diagnostics, confirm } = req.body || {};
+  if (confirm !== "REPLACE") {
+    return res.status(400).json({
+      ok: false,
+      error: 'Требуется подтверждение: добавь в тело запроса "confirm": "REPLACE" — это необратимо перезапишет текущие файлы.',
+    });
+  }
   const written = [];
   try {
     if (analytics !== undefined) {

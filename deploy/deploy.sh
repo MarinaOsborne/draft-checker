@@ -82,13 +82,27 @@ GOOGLE_SHEET_ID="${GOOGLE_SHEET_ID:-}"
 # разовую проверку окружения VibeCode Galaxy (постоянный том /data, число
 # экземпляров, фоновое выполнение после ответа). Оставь пустым на обычном
 # деплое — тогда эти эндпоинты не подключаются вообще.
+# ⚠️ ВАЖНО: это значение, если оно true, переживёт "обычный" деплой, если ты
+# забудешь его снять в deploy/.env.deploy — просто НЕ указать ENABLE_ENV_PROBES
+# в команде запуска недостаточно: скрипт сначала считывает deploy/.env.deploy
+# (см. source "$ENVFILE" выше) и, если там сохранено ENABLE_ENV_PROBES=true с
+# прошлого раза, именно это значение и останется, независимо от командной
+# строки. Перед обычным деплоем проверь САМ ФАЙЛ deploy/.env.deploy, а не
+# полагайся на то, что просто не напечатала переменную в терминале.
 ENABLE_ENV_PROBES="${ENABLE_ENV_PROBES:-}"
+# Та же оговорка про deploy/.env.deploy, что и выше у ENABLE_ENV_PROBES —
+# проверяй сам файл. Включает /admin/export-analytics, /admin/export-diagnostics
+# и /admin/restore-data (см. server/routes/admin.js) — временные инструменты
+# для одноразового переноса данных при переключении DATA_DIR, не для
+# повседневного использования.
+ENABLE_DATA_MIGRATION="${ENABLE_DATA_MIGRATION:-}"
 # Пусто по умолчанию — данные пишутся в process.cwd()+"/data" (сейчас это
 # /opt/app/data, не переживает деплой — подтверждено через /admin/env-check).
 # Переключай на /data (постоянный том, подтверждено тем же пробником) ТОЛЬКО
 # после того, как снята резервная копия текущих данных через
 # /admin/export-analytics, /admin/export-analysis, /admin/export-diagnostics
-# и восстановлена на новом месте через /admin/restore-data — иначе накопленные
+# (требует ENABLE_DATA_MIGRATION=true на ТЕКУЩЕМ деплое данных, см. выше) и
+# восстановлена на новом месте через /admin/restore-data — иначе накопленные
 # счётчики/аналитика на момент переключения будут потеряны (см. CLAUDE.md).
 DATA_DIR="${DATA_DIR:-}"
 # Стамп коммита, который реально паковался — .git не входит в архив (см. ниже),
@@ -105,6 +119,14 @@ field() { grep -oE "\"$1\":\"[^\"]*\"" | head -1 | sed -E "s/.*:\"([^\"]*)\"/\1/
 b64() {
   if base64 --help 2>&1 | grep -q -- '-w'; then base64 -w0 "$1"; else base64 "$1" | tr -d '\n'; fi
 }
+
+if [ "$ENABLE_ENV_PROBES" = "true" ] || [ "$ENABLE_DATA_MIGRATION" = "true" ]; then
+  echo "⚠️  ВНИМАНИЕ: на этом деплое включены временные эндпоинты —"
+  [ "$ENABLE_ENV_PROBES" = "true" ] && echo "    ENABLE_ENV_PROBES=true (/admin/env-check*)"
+  [ "$ENABLE_DATA_MIGRATION" = "true" ] && echo "    ENABLE_DATA_MIGRATION=true (/admin/export-analytics, export-diagnostics, restore-data)"
+  echo "   Если это не разовая проверка/миграция, а обычный деплой — останови (Ctrl+C) и проверь deploy/.env.deploy."
+  sleep 3
+fi
 
 echo "→ 1/5  Собираю фронтенд (npm run build)…"
 ( cd "$ROOT" && npm run build >/dev/null ) || { echo "❌ Сборка упала"; exit 1; }
@@ -129,6 +151,7 @@ ADMIN_PASSWORD=$ADMIN_PASSWORD
 GOOGLE_SERVICE_ACCOUNT_KEY_BASE64=$GOOGLE_SERVICE_ACCOUNT_KEY_BASE64
 GOOGLE_SHEET_ID=$GOOGLE_SHEET_ID
 ENABLE_ENV_PROBES=$ENABLE_ENV_PROBES
+ENABLE_DATA_MIGRATION=$ENABLE_DATA_MIGRATION
 DATA_DIR=$DATA_DIR
 GIT_COMMIT=$GIT_COMMIT
 EOF
